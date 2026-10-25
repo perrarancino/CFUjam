@@ -1297,6 +1297,13 @@ body.s14{background-color:#fff6e5;background-image:radial-gradient(rgba(31,42,68
 @media(min-width:1650px){.s14 .uname{display:block}}
 @media(max-width:700px){.s14 .tabsnav{max-width:none}}
 
+/* вкладки держатся компактно, а не растягиваются на всю свободную ширину; панель сжимается/расширяется только по необходимости */
+.s14 .tabsnav{flex:0 1 auto;max-width:none}
+.s14 .tabsnav a{flex:none;gap:clamp(4px,.45vw,8px);padding:10px clamp(6px,.62vw,14px)}
+.s14 .nav{padding-left:clamp(12px,1.6vw,24px);padding-right:clamp(12px,1.6vw,24px)}
+.s14 .tabsnav.compact a{padding:11px clamp(11px,1.1vw,18px)}
+@media(max-width:700px){.s14 .tabsnav{flex:1 1 100%}.s14 .tabsnav a{flex:1;justify-content:center;padding:9px 4px}}
+
 </style>
 </head>
 <body class="s12 s14" data-av="initials">
@@ -2654,6 +2661,8 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     if (on && ind) { ind.style.width = on.offsetWidth + 'px'; ind.style.transform = 'translateX(' + on.offsetLeft + 'px)'; }
   }
   window.addEventListener('resize', fit);
+  /* состав шапки меняется после входа/выхода (ник, аватарка, кнопка) — пересчитываем */
+  if (window.ResizeObserver) { var ro = new ResizeObserver(fit); ['.nav-r', '.brand'].forEach(function (q) { var e = document.querySelector(q); if (e) ro.observe(e); }); }
   window.addEventListener('load', fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
   fit();
