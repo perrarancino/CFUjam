@@ -28,3 +28,9 @@
 - `img/w07.jpg` — «Super Famicom controller for Nintendo Switch (48792956192).jpg», автор: Kana Natsuno from Tokyo, Japan, лицензия: CC BY 2.0, источник: https://commons.wikimedia.org/wiki/File:Super_Famicom_controller_for_Nintendo_Switch_(48792956192).jpg
 - `img/w08.jpg` — «HTC Vive Virtual Reality Headset and Controllers.jpg», автор: PB, лицензия: CC BY-SA 4.0, источник: https://commons.wikimedia.org/wiki/File:HTC_Vive_Virtual_Reality_Headset_and_Controllers.jpg
 - `img/w09.jpg` — «Oculus-Rift-CV1-Headset-Back.jpg», автор: Evan-Amos, лицензия: Public domain, источник: https://commons.wikimedia.org/wiki/File:Oculus-Rift-CV1-Headset-Back.jpg
+
+## Иконки и шрифты
+
+- Пиксельные иконки: [Pixel Icon Library](https://pixeliconlibrary.com) © HackerNoon, лицензия CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), изменений в иконках нет. Файлы: `pixel-icons/hn/`.
+- Пиксельные иконки: [pixelarticons](https://github.com/halfmage/pixelarticons), лицензия MIT. Файлы: `pixel-icons/`.
+- Шрифт Handjet (Google Fonts), лицензия SIL OFL 1.1. Файлы: `fonts/`.
