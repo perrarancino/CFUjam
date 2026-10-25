@@ -1260,6 +1260,9 @@ body.s14{background-color:#fff6e5;background-image:radial-gradient(rgba(31,42,68
   .s14 .btn:hover,.s14 .stepcards li:hover,.s14 .brand:hover{transform:none}
 }
 
+/* карусель: без затемнения слайдов (оно перерисовывалось каждый кадр) */
+.s14 .slide::before,.s14 .slide .in::before{display:none}
+
 </style>
 </head>
 <body class="s12 s14" data-av="initials">
@@ -2286,8 +2289,16 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     }
     var angles = new Array(N), dcache = new Array(N);
     window.CFU_slideAngle = function (s) { var i = slides.indexOf(s); return i < 0 ? 0 : angles[i]; };
-    var last = performance.now();
+    var last = performance.now(), visible = true, running = false;
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) {
+        visible = es[0].isIntersecting;
+        if (visible && !running) { running = true; last = performance.now(); requestAnimationFrame(frame); }
+      }, { rootMargin: '120px' }).observe(stage);
+    }
     function frame(now) {
+      if (!visible || !stage.offsetParent || document.hidden) { running = false; return; }
+      if (MOB && (frameNo & 1)) { frameNo++; requestAnimationFrame(frame); return; }
       var dt = Math.min(.25, (now - last) / 1000); last = now;
       if ((frameNo++ & 3) === 0) probe();
       if (!dragging) {
@@ -2299,11 +2310,13 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
       for (var i = 0; i < N; i++) {
         var a = ((i * step + angle) % 360 + 540) % 360 - 180, d = Math.min(1, Math.abs(a) / 75);
         angles[i] = a;
-        if (dcache[i] === undefined || Math.abs(d - dcache[i]) > .012) { dcache[i] = d; slides[i].style.setProperty('--d', d.toFixed(2)); }
+        if (!window.CFU_NODIM && (dcache[i] === undefined || Math.abs(d - dcache[i]) > .012)) { dcache[i] = d; slides[i].style.setProperty('--d', d.toFixed(2)); }
       }
       requestAnimationFrame(frame);
     }
-    requestAnimationFrame(frame);
+    running = true; requestAnimationFrame(frame);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && !running && visible) { running = true; last = performance.now(); requestAnimationFrame(frame); } });
+    window.CFU_wakeCarousel = function () { if (!running && visible) { running = true; last = performance.now(); requestAnimationFrame(frame); } };
   })();
 
   /* ================= переход между страницами =================
@@ -2368,177 +2381,135 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
   play($('.view:not([hidden])'));
 })();
 
-/* CFU Game Jam — пиксельная волна между вкладками: полоса плиток с пиксельной картинкой проходит по экрану, за ней уже новая страница */
+/* CFU Game Jam — лёгкий пиксельный переход: одна полоса из блоков-«пикселей» с картинкой проезжает по экрану.
+   Рисуется один раз на крошечном canvas, дальше двигается только transform (на видеокарте), страница меняется под полосой. */
 (function () {
   'use strict';
   var body = document.body;
-  var COLORS = ['#1f2a44', '#ff5a4f', '#ffc933', '#19b5a5', '#4aa3ff'];
-  var pt = { x: innerWidth / 2, y: 40, t: 0 };
+  window.CFU_NODIM = true;                        /* карусели не нужно пересчитывать затемнение слайдов каждый кадр */
+  var pt = { x: 0, y: 0, t: 0 };
   var cur = null;
 
-  /* картинки для перехода: каждый раз случайная, горизонтальные — на широких экранах, вертикальные — на телефоне */
+  /* картинки для полосы: подгружаем немного и только в простое, на экономии трафика — вообще не грузим */
   var WIDE = [], TALL = [], i0;
   for (i0 = 1; i0 <= 9; i0++) WIDE.push('img/m/w0' + i0 + '.jpg');
   for (i0 = 1; i0 <= 16; i0++) TALL.push('img/s/c' + (i0 < 10 ? '0' : '') + i0 + '.jpg');
   var cache = {}, lastPic = '';
+  var cn = navigator.connection || {}, SAVE = !!cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
+  function ok(src) { var im = cache[src]; return !!(im && im.complete && im.naturalWidth); }
   function load(src) {
     if (cache[src]) return cache[src];
-    var im = new Image(); cache[src] = im; im.src = src; return im;
+    var im = new Image(); im.decoding = 'async'; cache[src] = im; im.src = src; return im;
   }
-  function ok(src) { var im = cache[src]; return !!(im && im.complete && im.naturalWidth); }
-  /* все картинки подгружаются заранее, по одной, чтобы каждый переход был с новой */
-  var preloaded = false;
-  var cn = navigator.connection || {}, SAVE = !!cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
+  function pool() { return innerWidth > innerHeight ? WIDE : TALL; }
   function preload() {
-    if (preloaded || SAVE) return; preloaded = true;
-    (innerWidth > innerHeight ? WIDE : TALL).forEach(function (src, n) { setTimeout(function () { load(src); }, 300 * n); });
+    if (SAVE) return;
+    var l = pool().slice().sort(function () { return Math.random() - .5; }).slice(0, 4);
+    l.forEach(function (src, n) { setTimeout(function () { load(src); }, 400 * n); });
   }
-  setTimeout(preload, 1200);
+  (window.requestIdleCallback || function (f) { setTimeout(f, 2500); })(function () { setTimeout(preload, 1500); });
   function pickPic() {
-    preload();
-    var list = innerWidth > innerHeight ? WIDE : TALL;
-    var ready = list.filter(ok), pool = ready.filter(function (x) { return x !== lastPic; });
-    if (!pool.length) pool = ready;
-    if (!pool.length) { list.forEach(function (x) { load(x); }); return load(list[0]); }
-    lastPic = pool[Math.floor(Math.random() * pool.length)];
+    var list = pool(), ready = list.filter(ok), cand = ready.filter(function (x) { return x !== lastPic; });
+    if (!cand.length) cand = ready;
+    if (!cand.length) { if (!SAVE) load(list[Math.floor(Math.random() * list.length)]); return null; }
+    lastPic = cand[Math.floor(Math.random() * cand.length)];
+    /* заранее подтягиваем следующую картинку, чтобы переходы не повторялись */
+    if (!SAVE && ready.length < 8) load(list[Math.floor(Math.random() * list.length)]);
     return cache[lastPic];
   }
 
-  document.addEventListener('pointerdown', function (e) { pt = { x: e.clientX, y: e.clientY, t: performance.now() }; }, true);
-  document.addEventListener('keydown', function () { pt = { x: innerWidth / 2, y: 40, t: 0 }; }, true);
+  document.addEventListener('pointerdown', function () { pt.t = performance.now(); }, true);
 
-  function easeOutBack(p) { var c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); }
-  function easeInCubic(p) { return p * p * p; }
   function hash(a, b) { var h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); }
+  var COLORS = ['#1f2a44', '#ff5a4f', '#ffc933', '#19b5a5', '#4aa3ff'];
 
-  function finish(st) {
-    if (!st || st.over) return;
-    st.over = true;
-    clearTimeout(st.t2);
-    if (st.raf) cancelAnimationFrame(st.raf);
-    swap(st);
-    if (st.cv && st.cv.parentNode) st.cv.parentNode.removeChild(st.cv);
-    if (st.old && st.old.parentNode) st.old.parentNode.removeChild(st.old);
-    body.classList.remove('camming');
-    if (cur === st) cur = null;
-  }
   function swap(st) {
     if (st.swapped) return;
     st.swapped = true;
     st.done();
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
-
+  function finish(st) {
+    if (!st || st.over) return;
+    st.over = true;
+    clearTimeout(st.t2);
+    st.anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+    swap(st);
+    if (st.el && st.el.parentNode) st.el.parentNode.removeChild(st.el);
+    body.classList.remove('camming');
+    if (cur === st) cur = null;
+  }
   window.CFU_camFinish = function () { finish(cur); };
   window.CFU_camBusy = function () { return !!cur; };
 
   window.CFU_cam = function (from, to, dir, done) {
     finish(cur);
-
     var W = innerWidth, H = innerHeight, mobile = W < 700;
-    var s = Math.max(mobile ? 28 : 34, Math.round(W / (mobile ? 13 : 42)));
-    var cols = Math.ceil(W / s) + 1, rows = Math.ceil(H / s) + 1;
-    var fresh = pt.t && performance.now() - pt.t < 1200;
-    var ox = fresh ? pt.x : W / 2, oy = fresh ? pt.y : 40;
+    var s = mobile ? 26 : Math.max(30, Math.round(W / 46));            /* размер «пикселя» */
+    var mode = Math.floor(Math.random() * 4);                          /* 0 →, 1 ←, 2 ↓, 3 ↑ */
+    var horiz = mode < 2, rev = mode % 2 === 1;
+    var along = horiz ? W : H, cross = horiz ? H : W;
+    var F = 7;                                                         /* ширина «рассыпающегося» края в блоках */
+    var nA = Math.ceil(along / s) + 3, nC = Math.ceil(cross / s) + 2;
+    var Bn = nA + 2 * F;                                               /* длина полосы в блоках */
+    var cw = horiz ? Bn : nC, ch = horiz ? nC : Bn;
 
-    /* волна: из точки клика, по горизонтали, по вертикали или по диагонали */
-    var mode = fresh && Math.random() < .5 ? 0 : 1 + Math.floor(Math.random() * 3);
-    var sx = Math.random() < .5 ? 1 : -1, sy = Math.random() < .5 ? 1 : -1;
-    var wx = mode === 1 ? 1 : mode === 3 ? .7 : 0, wy = mode === 2 ? 1 : mode === 3 ? .9 : 0;
-    var nrm = Math.hypot(wx, wy) || 1;
-    function dist(x, y) {
-      if (mode === 0) return Math.hypot(x - ox, y - oy);
-      return (sx > 0 ? x : W - x) * wx + (sy > 0 ? y : H - y) * wy;
+    var cv = document.createElement('canvas');
+    cv.width = cw; cv.height = ch;
+    var g = cv.getContext('2d');
+    var pic = pickPic();
+    if (pic) {
+      var iw = pic.naturalWidth, ih = pic.naturalHeight, k = Math.max(cw / iw, ch / ih);
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+      try { g.filter = 'saturate(1.35) contrast(1.12)'; } catch (e) {}
+      g.drawImage(pic, (cw - iw * k) / 2, (ch - ih * k) / 2, iw * k, ih * k);
+      try { g.filter = 'none'; } catch (e) {}
+    } else {
+      for (var yy = 0; yy < ch; yy++) for (var xx = 0; xx < cw; xx++) { g.fillStyle = COLORS[Math.floor(hash(xx, yy) * COLORS.length)]; g.fillRect(xx, yy, 1, 1); }
     }
-    var ang = Math.atan2(sx * wx, -(sy * wy)) * 180 / Math.PI;   /* направление движения волны для маски */
-
-    var offX = (W - cols * s) / 2, offY = (H - rows * s) / 2;
-    var pic = pickPic(), small = null;
-    if (pic.complete && pic.naturalWidth) {
-      /* картинка сжимается до сетки плиток: одна плитка = один «пиксель» арта */
-      small = document.createElement('canvas'); small.width = cols; small.height = rows;
-      var sg = small.getContext('2d'), k = Math.max(cols / pic.naturalWidth, rows / pic.naturalHeight), dw = pic.naturalWidth * k, dh = pic.naturalHeight * k;
-      sg.imageSmoothingEnabled = true; sg.imageSmoothingQuality = 'high';
-      try { sg.filter = 'saturate(1.35) contrast(1.12)'; } catch (e) {}
-      sg.drawImage(pic, (cols - dw) / 2, (rows - dh) / 2, dw, dh);
-    }
-    var cells = [], maxD = 0, i, j;
-    for (j = 0; j < rows; j++) for (i = 0; i < cols; i++) {
-      var cx = offX + i * s + s / 2, cy = offY + j * s + s / 2, d = dist(cx, cy);
-      if (d > maxD) maxD = d;
-      cells.push({ ci: i, cj: j, cx: cx, cy: cy, d: d, n: hash(i, j), dir: (i + j) % 2 ? 1 : -1 });
-    }
-    var SP = mobile ? 300 : 380, NZ = 40, GROW = 90, HOLD = 40, SHR = 100;   /* HOLD >= NZ, иначе старая страница мелькнёт */
-    cells.forEach(function (c) {
-      c.dl = c.d / maxD * SP + c.n * NZ;
-      c.col = COLORS[Math.floor(c.d / maxD * 4.6 + c.n * 1.7) % COLORS.length];
-    });
-    var TOTAL = SP + NZ + GROW + HOLD + SHR;
-
-    /* старая страница остаётся «снимком» поверх новой и пропадает за волной */
-    var oldWrap = null, mainEl = from.parentNode;
-    try {
-      var r = mainEl.getBoundingClientRect(), mc = mainEl.cloneNode(false), vc = from.cloneNode(true), cs = getComputedStyle(body);
-      mc.removeAttribute('id');
-      [].forEach.call(vc.querySelectorAll('[id]'), function (n) { n.removeAttribute('id'); });
-      [].forEach.call(vc.querySelectorAll('.hv'), function (n) { n.classList.remove('hv'); });
-      vc.hidden = false;
-      mc.style.cssText = 'position:absolute;margin:0;left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;box-sizing:border-box';
-      mc.appendChild(vc);
-      oldWrap = document.createElement('div');
-      oldWrap.setAttribute('aria-hidden', 'true');
-      oldWrap.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;z-index:40;pointer-events:none;background-color:' + cs.backgroundColor + ';background-image:' + cs.backgroundImage + ';background-size:' + cs.backgroundSize;
-      oldWrap.appendChild(mc);
-      document.body.appendChild(oldWrap);
-    } catch (e) { oldWrap = null; }
-
-    var cv = document.createElement('canvas'), dpr = mobile ? 1 : Math.min(2, window.devicePixelRatio || 1);
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    cv.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:9999;pointer-events:none';
-    document.body.appendChild(cv);
-    var g = cv.getContext('2d'); g.scale(dpr, dpr); g.imageSmoothingEnabled = false;
-
-    var st = { done: done, swapped: false, over: false, cv: cv, old: oldWrap, raf: 0 };
-    cur = st; body.classList.add('camming');
-    swap(st);                                    /* новая страница уже лежит под волной */
-    st.t2 = setTimeout(function () { if (cur === st) finish(st); }, TOTAL + 700);
-
-    function setMask(D) {
-      if (!oldWrap) return;
-      var m;
-      if (D <= 0) m = 'none';
-      else if (mode === 0) m = 'radial-gradient(circle at ' + ox + 'px ' + oy + 'px,transparent ' + D + 'px,#000 ' + (D + .6) + 'px)';
-      else { var q = D / nrm; m = 'linear-gradient(' + ang + 'deg,transparent ' + q + 'px,#000 ' + (q + .6) + 'px)'; }
-      oldWrap.style.webkitMaskImage = m; oldWrap.style.maskImage = m;
-    }
-
-    var t0 = performance.now();
-    function frame(now) {
-      if (st.over) return;
-      var t = now - t0;
-      setMask((t - NZ - GROW) / SP * maxD);
-      g.clearRect(0, 0, W, H);
-      for (var k2 = 0; k2 < cells.length; k2++) {
-        var c = cells[k2], tt = t - c.dl, sc, rot;
-        if (tt < 0) continue;
-        if (tt < GROW) { var p = tt / GROW; sc = Math.min(1.12, easeOutBack(p)); rot = (1 - p) * 1.4 * c.dir; }
-        else if (tt < GROW + HOLD) { sc = 1; rot = 0; }
-        else { var q2 = (tt - GROW - HOLD) / SHR; if (q2 >= 1) continue; sc = 1 - easeInCubic(q2); rot = q2 * -1.1 * c.dir; }
-        if (sc <= 0.005) continue;
-        var h = s * sc;
-        g.save();
-        g.translate(c.cx, c.cy); g.rotate(rot);
-        if (small) g.drawImage(small, c.ci, c.cj, 1, 1, -h / 2 - .5, -h / 2 - .5, h + 1, h + 1);
-        else { g.fillStyle = c.col; g.fillRect(-h / 2 - .5, -h / 2 - .5, h + 1, h + 1); }
-        var b = Math.max(2, h * .09);
-        g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(-h / 2 - .5, -h / 2 - .5, h + 1, b);
-        g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(-h / 2 - .5, h / 2 - b + .5, h + 1, b);
-        g.restore();
+    /* края рассыпаются на блоки: чем ближе к краю, тем меньше блоков остаётся */
+    for (var a = 0; a < Bn; a++) {
+      var lead = Bn - 1 - a, keep = a < F ? (a + .5) / F : lead < F ? (lead + .5) / F : 1;
+      if (keep >= 1) continue;
+      for (var c = 0; c < nC; c++) {
+        if (hash(a + 3, c + 7) > keep) { if (horiz) g.clearRect(rev ? Bn - 1 - a : a, c, 1, 1); else g.clearRect(c, rev ? Bn - 1 - a : a, 1, 1); }
       }
-      if (t > TOTAL) { finish(st); return; }
-      st.raf = requestAnimationFrame(frame);
     }
-    st.raf = requestAnimationFrame(frame);
+    /* лёгкие грани на блоках, чтобы читались как пиксели */
+    cv.style.cssText = 'display:block;width:' + (cw * s) + 'px;height:' + (ch * s) + 'px;image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:pixelated';
+
+    var el = document.createElement('div');
+    el.setAttribute('aria-hidden', 'true');
+    var off = -((horiz ? nC * s - H : nC * s - W) / 2);
+    el.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;will-change:transform;left:0;top:0;' + (horiz ? 'top:' + off + 'px' : 'left:' + off + 'px');
+    el.appendChild(cv);
+    document.body.appendChild(el);
+
+    var L = Bn * s, fs = F * s, slack = s * 1.2;
+    /* положения полосы вдоль движения: старт, «закрыто целиком», конец */
+    var p0, p1, p2;
+    if (!rev) { p0 = -L; p1 = -(fs + slack); p2 = along; }
+    else { p0 = along; p1 = along - L + fs + slack; p2 = -L; }
+    function tr(v) { return horiz ? 'translate3d(' + v + 'px,0,0)' : 'translate3d(0,' + v + 'px,0)'; }
+
+    var st = { done: done, swapped: false, over: false, el: el, anims: [] };
+    cur = st; body.classList.add('camming');
+    st.t2 = setTimeout(function () { if (cur === st) finish(st); }, 1600);
+
+    var D1 = mobile ? 190 : 230, D2 = mobile ? 220 : 270;
+    el.style.transform = tr(p0);
+    var a1 = el.animate([{ transform: tr(p0) }, { transform: tr(p1) }], { duration: D1, easing: 'cubic-bezier(.25,.6,.35,1)', fill: 'forwards' });
+    st.anims.push(a1);
+    a1.onfinish = function () {
+      if (cur !== st) return;
+      swap(st);                                    /* экран закрыт полосой — меняем страницу */
+      requestAnimationFrame(function () {
+        if (cur !== st) return;
+        var a2 = el.animate([{ transform: tr(p1) }, { transform: tr(p2) }], { duration: D2, easing: 'cubic-bezier(.5,0,.75,.55)', fill: 'forwards' });
+        st.anims.push(a2);
+        a2.onfinish = function () { if (cur === st) finish(st); };
+      });
+    };
   };
 })();
 
