@@ -2379,16 +2379,17 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
   play($('.view:not([hidden])'));
 })();
 
-/* CFU Game Jam — лёгкий пиксельный переход: одна полоса из блоков-«пикселей» с картинкой проезжает по экрану.
-   Рисуется один раз на крошечном canvas, дальше двигается только transform (на видеокарте), страница меняется под полосой. */
+/* CFU Game Jam — пиксельная волна между вкладками: плитки-«пиксели» с картинкой выпрыгивают волной, за волной уже новая страница.
+   Оптимизация: картинка из блоков и грани плиток рисуются один раз в заготовку; каждый кадр — по одному drawImage на плитку и только для плиток в полосе волны. */
 (function () {
   'use strict';
   var body = document.body;
   window.CFU_NODIM = true;                        /* карусели не нужно пересчитывать затемнение слайдов каждый кадр */
-  var pt = { x: 0, y: 0, t: 0 };
+  var pt = { x: innerWidth / 2, y: 40, t: 0 };
   var cur = null;
+  var COLORS = ['#1f2a44', '#ff5a4f', '#ffc933', '#19b5a5', '#4aa3ff'];
 
-  /* картинки для полосы: подгружаем немного и только в простое, на экономии трафика — вообще не грузим */
+  /* картинки для волны: немного, в простое; на экономии трафика — не грузим (тогда плитки цветные) */
   var WIDE = [], TALL = [], i0;
   for (i0 = 1; i0 <= 9; i0++) WIDE.push('img/m/w0' + i0 + '.jpg');
   for (i0 = 1; i0 <= 16; i0++) TALL.push('img/s/c' + (i0 < 10 ? '0' : '') + i0 + '.jpg');
@@ -2402,8 +2403,7 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
   function pool() { return innerWidth > innerHeight ? WIDE : TALL; }
   function preload() {
     if (SAVE) return;
-    var l = pool().slice().sort(function () { return Math.random() - .5; }).slice(0, 4);
-    l.forEach(function (src, n) { setTimeout(function () { load(src); }, 400 * n); });
+    pool().slice().sort(function () { return Math.random() - .5; }).slice(0, 4).forEach(function (src, n) { setTimeout(function () { load(src); }, 400 * n); });
   }
   (window.requestIdleCallback || function (f) { setTimeout(f, 2500); })(function () { setTimeout(preload, 1500); });
   function pickPic() {
@@ -2411,15 +2411,15 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     if (!cand.length) cand = ready;
     if (!cand.length) { if (!SAVE) load(list[Math.floor(Math.random() * list.length)]); return null; }
     lastPic = cand[Math.floor(Math.random() * cand.length)];
-    /* заранее подтягиваем следующую картинку, чтобы переходы не повторялись */
-    if (!SAVE && ready.length < 8) load(list[Math.floor(Math.random() * list.length)]);
+    if (!SAVE && ready.length < 8) load(list[Math.floor(Math.random() * list.length)]);   /* подтягиваем следующую, чтобы не повторялись */
     return cache[lastPic];
   }
 
-  document.addEventListener('pointerdown', function () { pt.t = performance.now(); }, true);
+  document.addEventListener('pointerdown', function (e) { pt = { x: e.clientX, y: e.clientY, t: performance.now() }; }, true);
+  document.addEventListener('keydown', function () { pt = { x: innerWidth / 2, y: 40, t: 0 }; }, true);
 
+  function easeOutBack(p) { var c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); }
   function hash(a, b) { var h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); }
-  var COLORS = ['#1f2a44', '#ff5a4f', '#ffc933', '#19b5a5', '#4aa3ff'];
 
   function swap(st) {
     if (st.swapped) return;
@@ -2431,9 +2431,10 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     if (!st || st.over) return;
     st.over = true;
     clearTimeout(st.t2);
-    st.anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+    if (st.raf) cancelAnimationFrame(st.raf);
     swap(st);
-    if (st.el && st.el.parentNode) st.el.parentNode.removeChild(st.el);
+    if (st.cv && st.cv.parentNode) st.cv.parentNode.removeChild(st.cv);
+    if (st.old && st.old.parentNode) st.old.parentNode.removeChild(st.old);
     body.classList.remove('camming');
     if (cur === st) cur = null;
   }
@@ -2442,72 +2443,118 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
 
   window.CFU_cam = function (from, to, dir, done) {
     finish(cur);
+
     var W = innerWidth, H = innerHeight, mobile = W < 700;
-    var s = mobile ? 26 : Math.max(30, Math.round(W / 46));            /* размер «пикселя» */
-    var mode = Math.floor(Math.random() * 4);                          /* 0 →, 1 ←, 2 ↓, 3 ↑ */
-    var horiz = mode < 2, rev = mode % 2 === 1;
-    var along = horiz ? W : H, cross = horiz ? H : W;
-    var F = 7;                                                         /* ширина «рассыпающегося» края в блоках */
-    var nA = Math.ceil(along / s) + 3, nC = Math.ceil(cross / s) + 2;
-    var Bn = nA + 2 * F;                                               /* длина полосы в блоках */
-    var cw = horiz ? Bn : nC, ch = horiz ? nC : Bn;
+    var s = mobile ? 30 : Math.max(36, Math.round(W / 40));
+    var cols = Math.ceil(W / s) + 1, rows = Math.ceil(H / s) + 1;
+    var fresh = pt.t && performance.now() - pt.t < 1200;
+    var ox = fresh ? pt.x : W / 2, oy = fresh ? pt.y : 40;
 
-    var cv = document.createElement('canvas');
-    cv.width = cw; cv.height = ch;
-    var g = cv.getContext('2d');
-    var pic = pickPic();
+    /* волна: из точки клика, по горизонтали, по вертикали или по диагонали */
+    var mode = fresh && Math.random() < .5 ? 0 : 1 + Math.floor(Math.random() * 3);
+    var sx = Math.random() < .5 ? 1 : -1, sy = Math.random() < .5 ? 1 : -1;
+    var wx = mode === 1 ? 1 : mode === 3 ? .7 : 0, wy = mode === 2 ? 1 : mode === 3 ? .9 : 0;
+    var nrm = Math.hypot(wx, wy) || 1;
+    function dist(x, y) {
+      if (mode === 0) return Math.hypot(x - ox, y - oy);
+      return (sx > 0 ? x : W - x) * wx + (sy > 0 ? y : H - y) * wy;
+    }
+    var ang = Math.atan2(sx * wx, -(sy * wy)) * 180 / Math.PI;      /* направление волны для маски */
+
+    var offX = (W - cols * s) / 2, offY = (H - rows * s) / 2;
+    var cells = [], maxD = 0, i, j;
+    for (j = 0; j < rows; j++) for (i = 0; i < cols; i++) {
+      var cx = offX + i * s + s / 2, cy = offY + j * s + s / 2, d = dist(cx, cy);
+      if (d > maxD) maxD = d;
+      cells.push({ ci: i, cj: j, cx: cx, cy: cy, d: d, n: hash(i, j), dir: (i + j) % 2 ? 1 : -1 });
+    }
+    var SP = mobile ? 280 : 340, NZ = 40, GROW = 80, HOLD = 40, SHR = 90;   /* HOLD >= NZ, иначе старая страница мелькнёт */
+    var LIFE = GROW + HOLD + SHR, TOTAL = SP + NZ + LIFE;
+    cells.forEach(function (c) { c.dl = c.d / maxD * SP + c.n * NZ; });
+    cells.sort(function (a, b) { return a.dl - b.dl; });
+
+    /* заготовка: вся картинка из блоков + грани плиток, рисуется один раз */
+    var big = document.createElement('canvas'); big.width = cols * s; big.height = rows * s;
+    var bg = big.getContext('2d'), pic = pickPic();
     if (pic) {
-      var iw = pic.naturalWidth, ih = pic.naturalHeight, k = Math.max(cw / iw, ch / ih);
-      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-      try { g.filter = 'saturate(1.35) contrast(1.12)'; } catch (e) {}
-      g.drawImage(pic, (cw - iw * k) / 2, (ch - ih * k) / 2, iw * k, ih * k);
-      try { g.filter = 'none'; } catch (e) {}
+      var small = document.createElement('canvas'); small.width = cols; small.height = rows;
+      var sg = small.getContext('2d'), k = Math.max(cols / pic.naturalWidth, rows / pic.naturalHeight), dw = pic.naturalWidth * k, dh = pic.naturalHeight * k;
+      sg.imageSmoothingEnabled = true; sg.imageSmoothingQuality = 'high';
+      try { sg.filter = 'saturate(1.35) contrast(1.12)'; } catch (e) {}
+      sg.drawImage(pic, (cols - dw) / 2, (rows - dh) / 2, dw, dh);
+      bg.imageSmoothingEnabled = false;
+      bg.drawImage(small, 0, 0, cols, rows, 0, 0, cols * s, rows * s);
     } else {
-      for (var yy = 0; yy < ch; yy++) for (var xx = 0; xx < cw; xx++) { g.fillStyle = COLORS[Math.floor(hash(xx, yy) * COLORS.length)]; g.fillRect(xx, yy, 1, 1); }
+      cells.forEach(function (c) { bg.fillStyle = COLORS[Math.floor(c.d / maxD * 4.6 + c.n * 1.7) % COLORS.length]; bg.fillRect(c.ci * s, c.cj * s, s, s); });
     }
-    /* края рассыпаются на блоки: чем ближе к краю, тем меньше блоков остаётся */
-    for (var a = 0; a < Bn; a++) {
-      var lead = Bn - 1 - a, keep = a < F ? (a + .5) / F : lead < F ? (lead + .5) / F : 1;
-      if (keep >= 1) continue;
-      for (var c = 0; c < nC; c++) {
-        if (hash(a + 3, c + 7) > keep) { if (horiz) g.clearRect(rev ? Bn - 1 - a : a, c, 1, 1); else g.clearRect(c, rev ? Bn - 1 - a : a, 1, 1); }
-      }
+    var bv = Math.max(2, Math.round(s * .09));
+    bg.fillStyle = 'rgba(255,255,255,.14)'; bg.fillStyle = 'rgba(255,255,255,.14)';
+    for (j = 0; j < rows; j++) for (i = 0; i < cols; i++) {
+      bg.fillStyle = 'rgba(255,255,255,.14)'; bg.fillRect(i * s, j * s, s, bv);
+      bg.fillStyle = 'rgba(0,0,0,.16)'; bg.fillRect(i * s, j * s + s - bv, s, bv);
     }
-    /* лёгкие грани на блоках, чтобы читались как пиксели */
-    cv.style.cssText = 'display:block;width:' + (cw * s) + 'px;height:' + (ch * s) + 'px;image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:pixelated';
 
-    var el = document.createElement('div');
-    el.setAttribute('aria-hidden', 'true');
-    var off = -((horiz ? nC * s - H : nC * s - W) / 2);
-    el.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;will-change:transform;left:0;top:0;' + (horiz ? 'top:' + off + 'px' : 'left:' + off + 'px');
-    el.appendChild(cv);
-    document.body.appendChild(el);
+    /* старая страница остаётся «снимком» поверх новой и пропадает за волной */
+    var oldWrap = null, mainEl = from.parentNode;
+    try {
+      var r = mainEl.getBoundingClientRect(), mc = mainEl.cloneNode(false), vc = from.cloneNode(true), cs = getComputedStyle(body);
+      mc.removeAttribute('id');
+      [].forEach.call(vc.querySelectorAll('[id]'), function (n) { n.removeAttribute('id'); });
+      [].forEach.call(vc.querySelectorAll('.hv'), function (n) { n.classList.remove('hv'); });
+      vc.hidden = false;
+      mc.style.cssText = 'position:absolute;margin:0;left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;box-sizing:border-box';
+      mc.appendChild(vc);
+      oldWrap = document.createElement('div');
+      oldWrap.setAttribute('aria-hidden', 'true');
+      oldWrap.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;z-index:40;pointer-events:none;background-color:' + cs.backgroundColor + ';background-image:' + cs.backgroundImage + ';background-size:' + cs.backgroundSize;
+      oldWrap.appendChild(mc);
+      document.body.appendChild(oldWrap);
+    } catch (e) { oldWrap = null; }
 
-    var L = Bn * s, fs = F * s, slack = s * 1.2;
-    /* положения полосы вдоль движения: старт, «закрыто целиком», конец */
-    var p0, p1, p2;
-    if (!rev) { p0 = -L; p1 = -(fs + slack); p2 = along; }
-    else { p0 = along; p1 = along - L + fs + slack; p2 = -L; }
-    function tr(v) { return horiz ? 'translate3d(' + v + 'px,0,0)' : 'translate3d(0,' + v + 'px,0)'; }
+    var cv = document.createElement('canvas'), dpr = mobile ? 1 : Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cv.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:9999;pointer-events:none';
+    document.body.appendChild(cv);
+    var g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
 
-    var st = { done: done, swapped: false, over: false, el: el, anims: [] };
+    var st = { done: done, swapped: false, over: false, cv: cv, old: oldWrap, raf: 0 };
     cur = st; body.classList.add('camming');
-    st.t2 = setTimeout(function () { if (cur === st) finish(st); }, 1600);
+    swap(st);                                    /* новая страница уже лежит под волной */
+    st.t2 = setTimeout(function () { if (cur === st) finish(st); }, TOTAL + 800);
 
-    var D1 = mobile ? 190 : 230, D2 = mobile ? 220 : 270;
-    el.style.transform = tr(p0);
-    var a1 = el.animate([{ transform: tr(p0) }, { transform: tr(p1) }], { duration: D1, easing: 'cubic-bezier(.25,.6,.35,1)', fill: 'forwards' });
-    st.anims.push(a1);
-    a1.onfinish = function () {
-      if (cur !== st) return;
-      swap(st);                                    /* экран закрыт полосой — меняем страницу */
-      requestAnimationFrame(function () {
-        if (cur !== st) return;
-        var a2 = el.animate([{ transform: tr(p1) }, { transform: tr(p2) }], { duration: D2, easing: 'cubic-bezier(.5,0,.75,.55)', fill: 'forwards' });
-        st.anims.push(a2);
-        a2.onfinish = function () { if (cur === st) finish(st); };
-      });
-    };
+    var lastD = -1e9;
+    function setMask(D) {
+      if (!oldWrap || Math.abs(D - lastD) < .7) return;
+      lastD = D;
+      var m;
+      if (D <= 0) m = 'none';
+      else if (mode === 0) m = 'radial-gradient(circle at ' + ox + 'px ' + oy + 'px,transparent ' + D + 'px,#000 ' + (D + .6) + 'px)';
+      else { var q = D / nrm; m = 'linear-gradient(' + ang + 'deg,transparent ' + q + 'px,#000 ' + (q + .6) + 'px)'; }
+      oldWrap.style.webkitMaskImage = m; oldWrap.style.maskImage = m;
+    }
+
+    var N = cells.length, lo = 0, hi = 0, t0 = performance.now();
+    function frame(now) {
+      if (st.over) return;
+      var t = now - t0;
+      setMask((t - NZ - GROW) / SP * maxD);
+      while (hi < N && cells[hi].dl <= t) hi++;
+      while (lo < hi && cells[lo].dl + LIFE <= t) lo++;
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+      for (var q2 = lo; q2 < hi; q2++) {
+        var c = cells[q2], tt = t - c.dl, sc, rot, p;
+        if (tt < GROW) { p = tt / GROW; sc = Math.min(1.12, easeOutBack(p)); rot = (1 - p) * 1.4 * c.dir; }
+        else if (tt < GROW + HOLD) { sc = 1; rot = 0; }
+        else { p = (tt - GROW - HOLD) / SHR; sc = 1 - p * p * p; rot = p * -1.1 * c.dir; }
+        if (sc <= 0.01) continue;
+        var h = s * sc, cosr = Math.cos(rot) * dpr, sinr = Math.sin(rot) * dpr;
+        if (rot === 0) { g.setTransform(dpr, 0, 0, dpr, 0, 0); g.drawImage(big, c.ci * s, c.cj * s, s, s, Math.round(c.cx - s / 2 - .5), Math.round(c.cy - s / 2 - .5), s + 1, s + 1); }
+        else { g.setTransform(cosr, sinr, -sinr, cosr, c.cx * dpr, c.cy * dpr); g.drawImage(big, c.ci * s, c.cj * s, s, s, -h / 2 - .5, -h / 2 - .5, h + 1, h + 1); }
+      }
+      if (t > TOTAL) { finish(st); return; }
+      st.raf = requestAnimationFrame(frame);
+    }
+    st.raf = requestAnimationFrame(frame);
   };
 })();
 
