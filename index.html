@@ -1265,6 +1265,23 @@ body.s14{background-color:#fff6e5;background-image:radial-gradient(rgba(31,42,68
 .s14 .ico{width:1.28em;height:1.28em;vertical-align:-.28em}
 .s14 .tabsnav a .ico{font-size:1.05em}
 
+/* ---------- вход через VK / Google (демо) ---------- */
+.s14 .oauth{display:grid;gap:10px;margin:2px 0 4px}
+.s14 .oauth .btn{justify-content:flex-start;gap:14px}
+.s14 .obadge{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:30px;padding:0 6px;font:900 21px/1 var(--font-title);color:#fff;background:#0077ff;box-shadow:0 0 0 3px var(--ink);letter-spacing:0}
+.s14 .obadge.gg{background:#fff;color:#4285f4}
+.s14 .orsep{display:flex;align-items:center;gap:12px;margin:8px 0 4px;font:600 21px/1 var(--font);color:var(--muted)}
+.s14 .orsep::before,.s14 .orsep::after{content:"";flex:1;height:0;border-top:3px dotted rgba(31,42,68,.4)}
+.s14 .consent{display:flex;flex-direction:column;gap:14px}
+.s14 .cs-head{display:flex;align-items:center;gap:12px;font:800 28px/1 var(--font-title);text-transform:uppercase}
+.s14 .cs-ask{font-size:25px;line-height:1.1;margin:0}
+.s14 .cs-acc{display:flex;align-items:center;gap:14px;padding:12px;background:var(--bg);box-shadow:var(--pb);margin:4px}
+.s14 .cs-acc small{display:block;font-size:20px;opacity:.75}
+.s14 .cs-acc b{font:800 24px/1 var(--font-title);text-transform:uppercase}
+.s14 .cs-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:23px}
+.s14 .cs-list .ico{color:var(--teal);margin-right:8px}
+.s14 .cs-btns{display:flex;gap:10px;flex-wrap:wrap}
+
 </style>
 </head>
 <body class="s12 s14" data-av="initials">
@@ -1639,7 +1656,7 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     var raw = localStorage.getItem(KEY);
     if (raw) { var d = JSON.parse(raw); for (var k in d) S[k] = d[k]; S.opts = Object.assign({}, DEF_OPTS, d.opts); }
   } catch (e) {}
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function save() { if (S.demo) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 
   /* ---------- helpers ---------- */
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -1822,11 +1839,14 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
       fld('pass', 'Пароль', 'password', '••••••', 'Минимум 6 символов', 'new-password') +
       '<label class="check"><input type="checkbox" name="rules"><i class="box"></i><span>Принимаю <a href="#/rules" data-rules>правила джема</a></span></label><small class="rerr" hidden>Нужно принять правила</small>' +
       '<button class="btn primary block" type="submit">' + ic('user-plus') + 'Создать аккаунт</button>';
+    var OAUTH = '<div class="oauth"><button class="btn light block" type="button" data-oauth="vk"><b class="obadge vk">VK</b><span>Войти через VK</span></button>' +
+      '<button class="btn light block" type="button" data-oauth="google"><b class="obadge gg">G</b><span>Войти через Google</span></button></div>' +
+      '<div class="orsep"><span>или ник и пароль</span></div>';
     function render(t) {
       form.dataset.t = t;
       $$('.tabs button', d).forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); });
       title.textContent = t === 'reg' ? 'Присоединяйся к джему' : 'С возвращением';
-      form.innerHTML = t === 'reg' ? REG : IN;
+      form.innerHTML = OAUTH + (t === 'reg' ? REG : IN);
       var a = $('[data-rules]', form); if (a) a.onclick = function (e) { e.preventDefault(); e.stopPropagation(); closeModal(); show('rules'); };
       $$('.field input', form).forEach(function (i) {
         i.addEventListener('input', function () {
@@ -1837,6 +1857,7 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
       });
     }
     $$('.tabs button', d).forEach(function (b) { b.onclick = function () { render(b.dataset.t); }; });
+    form.addEventListener('click', function (e) { var b = e.target.closest('[data-oauth]'); if (b) oauthDemo(b.dataset.oauth); });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var f = form.elements, t = form.dataset.t;
@@ -1863,8 +1884,35 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     });
     render(tab || 'in');
   }
+  /* Демо-вход: окно «согласия» как у провайдера. Настоящего OAuth нет: ни ключей, ни сервера, ни запросов в сеть. Сессия только в памяти вкладки. */
+  var PROV = {
+    vk: { name: 'VK', badge: 'vk', who: 'Демо-аккаунт VK', nick: 'vk_demo', mail: 'demo@vk.example' },
+    google: { name: 'Google', badge: 'gg', who: 'Демо-аккаунт Google', nick: 'google_demo', mail: 'demo@gmail.example' }
+  };
+  function oauthDemo(id) {
+    var pv = PROV[id]; if (!pv) return;
+    S.demo = id;                                  /* с этого момента ничего не пишется в localStorage (в том числе формы аватарок) */
+    var d = openModal('Вход через ' + pv.name,
+      '<div class="consent"><div class="cs-head"><b class="obadge ' + pv.badge + '">' + (id === 'vk' ? 'VK' : 'G') + '</b><span>' + pv.name + '</span></div>' +
+      '<p class="cs-ask"><b>CFU Game Jam</b> запрашивает доступ к вашему имени и аватарке</p>' +
+      '<div class="cs-acc"><span class="av sm" data-n="' + esc(pv.who) + '"></span><div><b>' + esc(pv.who) + '</b><small>' + esc(pv.mail) + '</small></div></div>' +
+      '<ul class="cs-list"><li>' + ic('check') + 'Имя и аватарка</li><li>' + ic('check') + 'Без доступа к друзьям и сообщениям</li></ul>' +
+      '<div class="cs-btns"><button class="btn primary" type="button" data-ok>Разрешить</button><button class="btn light" type="button" data-no>Отмена</button></div>' +
+      '<p class="hintp">Это демо: настоящий вход не подключён, данные никуда не отправляются и не сохраняются. После обновления страницы вы выйдете из аккаунта.</p></div>');
+    fillFaces(d);
+    function undo() { delete S.demo; delete S.shapes[pv.who]; }
+    d.parentNode.addEventListener('mousedown', function (e) { if (e.target === d.parentNode) undo(); });
+    $('.x', d).addEventListener('click', undo);
+    $('[data-no]', d).onclick = function () { undo(); closeModal(); authModal('in'); };
+    $('[data-ok]', d).onclick = function () {
+      if (!userRec(pv.nick)) S.users.push({ nick: pv.nick, email: pv.mail, pw: '', at: Date.now(), demo: id });
+      S.user = pv.nick; closeModal(); renderAll();
+      toast('Вход через ' + pv.name + ' (демо): ничего не сохраняется', 'ok');
+    };
+  }
   function needAuth(msg) { toast(msg || 'Сначала войдите в аккаунт', 'warn'); authModal('in'); }
   navBtn.addEventListener('click', function () {
+    if (S.user && S.demo) { location.reload(); return; }          /* демо-сессия: просто сбрасываем память */
     if (S.user) { S.user = null; save(); renderAll(); toast('Вы вышли из аккаунта'); } else authModal('in');
   });
   ctaReg.addEventListener('click', function () {
