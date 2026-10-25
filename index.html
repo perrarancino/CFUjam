@@ -2445,7 +2445,9 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     finish(cur);
 
     var W = innerWidth, H = innerHeight, mobile = W < 700;
-    var s = mobile ? 30 : Math.max(36, Math.round(W / 40));
+    /* «лёгкий» режим для телефонов и слабых устройств: крупные плитки, без снимка старой страницы и без поворотов */
+    var LITE = mobile || (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+    var s = LITE ? (mobile ? Math.round(W / 9) : Math.max(52, Math.round(W / 26))) : Math.max(36, Math.round(W / 40));
     var cols = Math.ceil(W / s) + 1, rows = Math.ceil(H / s) + 1;
     var fresh = pt.t && performance.now() - pt.t < 1200;
     var ox = fresh ? pt.x : W / 2, oy = fresh ? pt.y : 40;
@@ -2468,8 +2470,9 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
       if (d > maxD) maxD = d;
       cells.push({ ci: i, cj: j, cx: cx, cy: cy, d: d, n: hash(i, j), dir: (i + j) % 2 ? 1 : -1 });
     }
-    var SP = mobile ? 280 : 340, NZ = 40, GROW = 80, HOLD = 40, SHR = 90;   /* HOLD >= NZ, иначе старая страница мелькнёт */
-    var LIFE = GROW + HOLD + SHR, TOTAL = SP + NZ + LIFE;
+    var SP = LITE ? 230 : 340, NZ = 40, GROW = LITE ? 70 : 80, HOLD = 40, SHR = LITE ? 80 : 90;   /* HOLD >= NZ, иначе старая страница мелькнёт */
+    var LIFE = GROW + HOLD + SHR, TOTAL = LITE ? SP + NZ + GROW + 20 + SP + NZ + SHR : SP + NZ + LIFE;
+    var TSWAP = SP + NZ + GROW + 10;                  /* лёгкий режим: экран закрыт целиком — меняем страницу */
     cells.forEach(function (c) { c.dl = c.d / maxD * SP + c.n * NZ; });
     cells.sort(function (a, b) { return a.dl - b.dl; });
 
@@ -2496,7 +2499,7 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
 
     /* старая страница остаётся «снимком» поверх новой и пропадает за волной */
     var oldWrap = null, mainEl = from.parentNode;
-    try {
+    if (!LITE) try {
       var r = mainEl.getBoundingClientRect(), mc = mainEl.cloneNode(false), vc = from.cloneNode(true), cs = getComputedStyle(body);
       mc.removeAttribute('id');
       [].forEach.call(vc.querySelectorAll('[id]'), function (n) { n.removeAttribute('id'); });
@@ -2519,7 +2522,7 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
 
     var st = { done: done, swapped: false, over: false, cv: cv, old: oldWrap, raf: 0 };
     cur = st; body.classList.add('camming');
-    swap(st);                                    /* новая страница уже лежит под волной */
+    if (!LITE) swap(st);                         /* новая страница уже лежит под волной */
     st.t2 = setTimeout(function () { if (cur === st) finish(st); }, TOTAL + 800);
 
     var lastD = -1e9;
@@ -2534,9 +2537,32 @@ document.querySelectorAll('.tabsnav a').forEach(function(a){a.title=a.textConten
     }
 
     var N = cells.length, lo = 0, hi = 0, t0 = performance.now();
+    function liteFrame(t) {
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var tr = t - TSWAP - 20, k, c, p, sc, h;
+      if (!st.swapped && t >= TSWAP) swap(st);
+      for (k = 0; k < N; k++) {
+        c = cells[k];
+        if (tr < 0) {                                  /* волна закрывает экран */
+          if (c.dl > t) break;
+          p = Math.min(1, (t - c.dl) / GROW); sc = Math.min(1.08, easeOutBack(p));
+        } else {                                       /* волна открывает новую страницу */
+          p = (tr - c.dl) / SHR;
+          if (p >= 1) continue;
+          sc = p <= 0 ? 1 : 1 - p * p * p;
+        }
+        if (sc <= .01) continue;
+        h = s * sc;
+        g.drawImage(big, c.ci * s, c.cj * s, s, s, c.cx - h / 2 - .5, c.cy - h / 2 - .5, h + 1, h + 1);
+      }
+      if (t > TOTAL) { finish(st); return; }
+      st.raf = requestAnimationFrame(frame);
+    }
     function frame(now) {
       if (st.over) return;
       var t = now - t0;
+      if (LITE) { liteFrame(t); return; }
       setMask((t - NZ - GROW) / SP * maxD);
       while (hi < N && cells[hi].dl <= t) hi++;
       while (lo < hi && cells[lo].dl + LIFE <= t) lo++;
