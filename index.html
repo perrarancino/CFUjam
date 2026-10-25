@@ -1284,10 +1284,17 @@ body.s14{background-color:#fff6e5;background-image:radial-gradient(rgba(31,42,68
 
 /* вкладки растягиваются на всю панель; если подписи не влезают — только иконки (класс compact ставит ui14.js) */
 .s14 .tabsnav{flex:1 1 auto;min-width:0;max-width:960px}
-.s14 .tabsnav a{flex:1 1 auto;justify-content:center;padding-left:clamp(8px,1vw,14px);padding-right:clamp(8px,1vw,14px)}
+.s14 .tabsnav a{flex:1 1 auto;justify-content:center;padding-left:clamp(4px,.55vw,14px);padding-right:clamp(4px,.55vw,14px);gap:clamp(4px,.5vw,8px)}
 .s14 .tabsnav.compact a span{display:none}
 .s14 .tabsnav.compact a{padding:11px clamp(8px,1.3vw,16px)}
 .s14 .nav{gap:clamp(8px,1.2vw,18px)}
+@media(max-width:700px){.s14 .tabsnav{max-width:none}}
+
+/* шапка шире, ник в шапке скрыт на обычных экранах (остаётся аватарка) — чтобы центральной панели хватало места для всех вкладок с подписями */
+.s14 .nav{max-width:1680px}
+.s14 .tabsnav{max-width:1100px}
+.s14 .uname{display:none}
+@media(min-width:1650px){.s14 .uname{display:block}}
 @media(max-width:700px){.s14 .tabsnav{max-width:none}}
 
 </style>
