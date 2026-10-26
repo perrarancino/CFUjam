@@ -60,7 +60,7 @@ function AuthForm({ tab, setTab, close }) {
           <Field id="a_email" name="email" label="Почта" type="email" placeholder="you@cfuv.ru" hint="Для уведомлений о джеме" error={err.email} value={v.email} onChange={set('email')} autoComplete="email" />
           <Field id="a_pass" name="pass" label="Пароль" type="password" placeholder="••••••" hint="Минимум 6 символов" error={err.pass} value={v.pass} onChange={set('pass')} autoComplete="new-password" />
           <Check checked={v.rules} onChange={(c) => { setV((x) => ({ ...x, rules: c })); setErr((x) => ({ ...x, rules: '' })); }}>
-            Принимаю <a href="#/rules" onClick={(e) => { e.preventDefault(); e.stopPropagation(); close(); window.CFU_go && window.CFU_go('rules'); }}>правила джема</a>
+            Принимаю правила джема
           </Check>
           {err.rules && <small className="rerr">{err.rules}</small>}
           <button className="btn primary block" type="submit"><Icon n="user-plus" />Создать аккаунт</button>

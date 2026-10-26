@@ -5,7 +5,7 @@ import { useApp } from '../store.jsx';
 const Cnt = ({ n }) => <span className="cnt" style={{ display: n > 0 ? '' : 'none' }}>{n}</span>;
 
 export default function Me() {
-  const { S, progOf, openModal, needAuth } = useApp();
+  const { S, update, toast, progOf, openModal, needAuth } = useApp();
   const { show } = useNav();
   const p = progOf(S);
   const n = S.user ? S.games.filter((g) => g.owner === S.user).length : 7;
@@ -42,6 +42,11 @@ export default function Me() {
             <div><Icon n="flag" /><b>{jams}</b><small>джема</small></div>
             <div><Icon n="star" /><b>{xp}</b><small>XP</small></div>
           </div>
+          {S.user && (
+            <button className="wide light" type="button" onClick={() => { if (S.demo) { location.hash = '#/home'; location.reload(); return; } update((d) => { d.user = null; }); toast('Вы вышли из аккаунта'); show('home'); }}>
+              <i className="circ"><Icon n="log-out" /></i><span>Выйти из аккаунта</span>
+            </button>
+          )}
           <button className="wide dark" id="p-write" type="button" onClick={() => (S.user ? msgs() : needAuth('Войдите, чтобы писать сообщения'))}>
             <i className="circ"><Icon n="send" /></i><span>{S.user ? 'Мои сообщения' : 'Написать'}</span>
           </button>

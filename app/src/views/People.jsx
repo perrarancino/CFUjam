@@ -50,7 +50,7 @@ export default function People() {
                 <div><Icon n="flag" /><b>{p.jams}</b><small>Джемов</small></div>
               </div>
               <button
-                className={'wide ' + (p.kind === 'a' ? 'dark' : 'light')}
+                className="wide dark"
                 type="button"
                 onClick={() => (S.user ? openModal({ type: 'write', who: p.full }) : needAuth('Войдите, чтобы писать сообщения'))}
               >
@@ -58,10 +58,8 @@ export default function People() {
               </button>
             </>
           );
-          return p.kind === 'a' ? (
+          return (
             <article key={p.nick} className={'prof a ' + p.theme}><div className="cov"><div className="grain" /></div>{body}</article>
-          ) : (
-            <article key={p.nick} className={'prof b ' + p.theme}><div className="grain" />{body}</article>
           );
         })}
       </div>

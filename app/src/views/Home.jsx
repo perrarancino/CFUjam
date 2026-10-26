@@ -59,7 +59,6 @@ export default function Home({ user, onRegister }) {
             <p className="lead">48 часов, команда и одна идея. Придумай, собери и покажи свою игру на крымском геймджеме КФУ — для программистов, художников, звукорежиссёров и всех, кто любит игры.</p>
             <div className="cta">
               <button className="btn pillcta" id="cta-reg" type="button" onClick={onRegister}><span>{user ? 'Создать команду' : 'Зарегистрироваться'}</span><i className="circ"><Icon n="arrow-right" /></i></button>
-              <button className="btn ghost" type="button" onClick={() => show('rules', 'schedule')}><Icon n="calendar-days" />Расписание</button>
             </div>
             <ul className="h14-facts"><li><Icon n="clock" />48 часов на игру</li><li><Icon n="users" />Команда до 6 человек</li><li><Icon n="gamepad-2" />Любой движок</li></ul>
           </div>

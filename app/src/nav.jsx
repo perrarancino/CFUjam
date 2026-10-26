@@ -61,6 +61,7 @@ export function useIndicator(navRef, view) {
       const nav = navRef.current;
       if (!nav) return;
       const a = nav.querySelector('a.on'), ind = nav.querySelector('.ind');
+      if (ind && !a) ind.style.opacity = 0;
       if (!a || !ind) return;
       ind.style.opacity = 1;
       ind.style.width = a.offsetWidth + 'px';

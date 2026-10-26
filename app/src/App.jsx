@@ -7,14 +7,9 @@ import Games from './views/Games.jsx';
 import Home from './views/Home.jsx';
 import Me from './views/Me.jsx';
 import People from './views/People.jsx';
-import Rules from './views/Rules.jsx';
-import Settings from './views/Settings.jsx';
 import Teams from './views/Teams.jsx';
 
-const TABS = [
-  ['home', 'house', 'Главная'], ['teams', 'users', 'Команды'], ['games', 'gamepad-2', 'Игры'], ['people', 'trophy', 'Участники'],
-  ['me', 'user', 'Кабинет'], ['settings', 'settings', 'Настройки'], ['rules', 'book-open', 'Правила']
-];
+const TABS = [['home', 'house', 'Главная'], ['teams', 'users', 'Команды'], ['games', 'gamepad-2', 'Игры'], ['people', 'trophy', 'Участники']];
 
 function Header() {
   const { S, openModal } = useApp();
@@ -23,12 +18,8 @@ function Header() {
   useIndicator(navRef, view);
 
   const go = (name) => (e) => { e.preventDefault(); show(name); };
-  const auth = () => {
-    if (S.user) {
-      if (S.demo) { location.reload(); return; }          /* демо-сессия: просто сбрасываем память */
-      window.CFU_logout && window.CFU_logout();
-    } else openModal({ type: 'auth', tab: 'in' });
-  };
+  /* аватарка: гость — открывает вход, участник — личный кабинет */
+  const avatar = () => (S.user ? show('me') : openModal({ type: 'auth', tab: 'in' }));
   return (
     <header className="nav">
       <a className="brand" href="#/home" onClick={go('home')}><span className="logo"><Icon n="gamepad-2" /></span><span className="bt">CFU JAM</span></a>
@@ -41,10 +32,8 @@ function Header() {
         ))}
       </nav>
       <div className="nav-r">
-        {S.user && <span className="uname">{S.user}</span>}
-        {S.user && <Avatar name={S.user} cls="sm on" />}
-        <button className="btn primary sm" id="btn-auth" type="button" onClick={auth}>
-          {S.user ? <><Icon n="log-out" /><span>Выйти</span></> : <><Icon n="log-in" /><span>Войти</span></>}
+        <button className={'avbtn' + (view === 'me' ? ' on' : '')} type="button" aria-label={S.user ? 'Личный кабинет' : 'Войти'} title={S.user ? 'Личный кабинет' : 'Войти'} onClick={avatar}>
+          <Avatar name={S.user || 'Гость'} cls="sm on" />
         </button>
       </div>
     </header>
@@ -81,8 +70,6 @@ function Shell() {
         {section('games', <Games />)}
         {section('people', <People />)}
         {section('me', <Me />)}
-        {section('settings', <Settings />)}
-        {section('rules', <Rules />)}
       </main>
       <Toasts />
       <Modals />
