@@ -1299,3 +1299,8 @@ body.s14{background-color:#fff6e5;background-image:radial-gradient(rgba(31,42,68
 .avbtn{background:none;border:0;padding:6px;margin:0;cursor:pointer;line-height:0;transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
 .avbtn:hover{transform:translateY(-3px) scale(1.06)}
 .avbtn .av{pointer-events:none}
+
+/* кнопки без обводки и цветных теней */
+.s14 .btn,.s14 .btn:hover,.s14 .btn:active,.s14 .btn.hv,.s14 .wide,.s14 .wide:hover,.s14 .icbtn,.s14 .pillcta,.s14 .pillcta:hover,.s14 .pillcta.hv,
+.s14 .seg span,.s14 .seg input:checked + span,.s14 .tabs button,.s14 .tabs button.on,.s14 .tag,.s14 .avbtn,.s14 .gfoot .btn,.s14 .btn.ghost,.s14 .btn.light{box-shadow:none!important;border:0!important;outline:0}
+.s14 .btn:focus-visible,.s14 .wide:focus-visible{outline:3px dashed currentColor!important;outline-offset:3px}
