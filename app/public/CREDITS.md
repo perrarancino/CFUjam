@@ -34,3 +34,6 @@
 - Пиксельные иконки: [Pixel Icon Library](https://pixeliconlibrary.com) © HackerNoon, лицензия CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), изменений в иконках нет. Файлы: `pixel-icons/hn/`.
 - Пиксельные иконки: [pixelarticons](https://github.com/halfmage/pixelarticons), лицензия MIT. Файлы: `pixel-icons/`.
 - Шрифт Handjet (Google Fonts), лицензия SIL OFL 1.1. Файлы: `fonts/`.
+
+## Phosphor Icons
+Иконки интерфейса: Phosphor Icons (https://phosphoricons.com), лицензия MIT.
