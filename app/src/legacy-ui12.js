@@ -240,7 +240,7 @@
 
   /* заранее подгружаем картинки остальных страниц, чтобы поворот не «мигал» */
   setTimeout(function () {
-    if (navigator.connection && navigator.connection.saveData) return;
+    if ((navigator.connection && navigator.connection.saveData) || innerWidth < 900) return;   /* на телефонах чужие вкладки заранее не грузим */
     $$('.view[hidden] img').forEach(function (i) { var im = new Image(), ss = i.getAttribute('srcset'), src = i.currentSrc || i.getAttribute('src');
       if (ss) { var best = null; ss.split(',').forEach(function (c) { var p = c.trim().split(/\s+/), w = parseInt(p[1], 10) || 0; if (!best || (w >= 480 && (best.w < 480 || w < best.w)) || (best.w < 480 && w > best.w)) best = { u: p[0], w: w }; }); if (best) src = best.u; }
       im.src = src; });

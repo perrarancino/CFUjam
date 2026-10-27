@@ -26,7 +26,7 @@ export function NavProvider({ children }) {
 
     const curEl = document.querySelector(`.view[data-view="${cur}"]`);
     const nxtEl = document.querySelector(`.view[data-view="${name}"]`);
-    const animate = window.CFU_cam && curEl && nxtEl && cur !== name && !document.body.classList.contains('noanim');
+    const animate = false;   /* переходы между вкладками отключены */
     const apply = () => flushSync(() => { viewRef.current = name; setView(name); });
 
     if (animate) window.CFU_cam(curEl, nxtEl, ROUTES.indexOf(name) > ROUTES.indexOf(cur) ? 1 : -1, apply);

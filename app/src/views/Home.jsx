@@ -66,7 +66,6 @@ export default function Home({ user, onRegister }) {
             <figure className="f1"><img src="img/c09.jpg" srcSet="img/s/c09.jpg 360w, img/q/c09.jpg 540w, img/c09.jpg 720w" sizes="(max-width:980px) 45vw, 22vw" alt="" draggable="false" decoding="async" /></figure>
             <figure className="f2"><img src="img/c10.jpg" srcSet="img/s/c10.jpg 360w, img/q/c10.jpg 540w, img/c10.jpg 720w" sizes="(max-width:980px) 45vw, 22vw" alt="" draggable="false" decoding="async" /></figure>
             <figure className="f3"><img src="img/c11.jpg" srcSet="img/s/c11.jpg 360w, img/q/c11.jpg 540w, img/c11.jpg 720w" sizes="(max-width:980px) 45vw, 22vw" alt="" draggable="false" decoding="async" /></figure>
-            <i className="ico ico-star deco dc1" /><i className="ico ico-sparkles deco dc2" /><i className="ico ico-sparkles deco dc3" /><i className="ico ico-star deco dc4" /><i className="ico ico-sparkles deco dc5" />
           </div>
         </div>
         <div className="stage" aria-hidden="true"><Ring /></div>

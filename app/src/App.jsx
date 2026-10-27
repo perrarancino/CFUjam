@@ -57,7 +57,8 @@ function Shell() {
 
   /* карусель, физика наведения и пиксельная волна — отдельные скрипты, подключаются после первой отрисовки */
   useEffect(() => {
-    import('./legacy-ui12.js').then(() => import('./legacy-ui14.js'));
+    const load = () => import('./legacy-ui12.js').then(() => import('./legacy-ui14.js'));
+    if (window.requestIdleCallback) window.requestIdleCallback(load, { timeout: 1500 }); else setTimeout(load, 300);
   }, []);
 
   const section = (name, node) => <section className="view" data-view={name} hidden={view !== name}>{node}</section>;
