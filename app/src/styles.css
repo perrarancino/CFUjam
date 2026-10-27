@@ -1305,15 +1305,26 @@ body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74
 .s14 .seg span,.s14 .seg input:checked + span,.s14 .tabs button,.s14 .tabs button.on,.s14 .tag,.s14 .avbtn,.s14 .gfoot .btn,.s14 .btn.ghost,.s14 .btn.light{box-shadow:none!important;border:0!important;outline:0}
 .s14 .btn:focus-visible,.s14 .wide:focus-visible{outline:3px dashed currentColor!important;outline-offset:3px}
 
-/* единые текстурные пиксельные кнопки: один цвет, «шахматное» зерно, ступенчатые углы и объёмные грани */
+
+/* единые текстурные пиксельные кнопки: узор из пиксельных «ромбов», нижняя тёмная полоса вместо тени, ступенчатые углы */
 .s14 .btn,.s14 .btn.primary,.s14 .btn.dark,.s14 .btn.light,.s14 .btn.ghost,.s14 .btn.secondary,.s14 .btn.liked,.s14 .wide,.s14 .wide.dark,.s14 .wide.light,.s14 .pillcta,.s14 .icbtn,.s14 .gfoot .btn,.s14 .band14 .btn.primary,.s14 .dlg .btn{
   background-color:var(--a)!important;color:#fff!important;
-  background-image:repeating-conic-gradient(rgba(255,255,255,.13) 0 25%,transparent 0 50%)!important;background-size:6px 6px!important;
-  box-shadow:inset 4px 4px 0 rgba(255,255,255,.30),inset -4px -4px 0 rgba(10,20,60,.34)!important;border:0!important;
+  background-image:linear-gradient(transparent 62%,rgba(10,20,60,.22) 62%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' width='14' height='14' shape-rendering='crispEdges'%3E%3Cpath fill='%23fff' fill-opacity='.2' d='M3 0h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM1 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM6 3h1v1h-1zM1 4h1v1h-1zM5 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM3 6h1v1h-1zM3 3h1v1h-1z'/%3E%3C/svg%3E")!important;background-size:100% 100%,14px 14px!important;
   clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));
   margin:4px;text-shadow:2px 2px 0 rgba(10,20,60,.35)}
-.s14 .btn:hover,.s14 .wide:hover,.s14 .pillcta:hover,.s14 .icbtn:hover{filter:brightness(1.1)}
-.s14 .btn:active,.s14 .wide:active,.s14 .pillcta:active,.s14 .icbtn:active{box-shadow:inset 4px 4px 0 rgba(10,20,60,.34),inset -4px -4px 0 rgba(255,255,255,.22)!important}
-.s14 .circ{background:#fff!important;color:var(--a)!important;box-shadow:none!important;text-shadow:none}
-.s14 .icbtn{color:#fff!important}.s14 .icbtn .ico{color:#fff}
+.s14 .btn:hover,.s14 .wide:hover,.s14 .pillcta:hover,.s14 .icbtn:hover{filter:brightness(1.12)}
+.s14 .btn:active,.s14 .wide:active,.s14 .pillcta:active,.s14 .icbtn:active{filter:brightness(.9)}
+.s14 .circ{background:#fff!important;color:var(--a)!important;text-shadow:none}
+.s14 .icbtn,.s14 .icbtn .ico{color:#fff!important}
 .s14 .btn::after{display:none}
+
+/* ни теней, ни обводок у элементов (тень остаётся только у текста) */
+.s14 *,.s14 *::before,.s14 *::after{box-shadow:none!important;border:0!important;outline:0}
+.s14 hr,.s14 .prof hr{border-top:3px dotted var(--ink)!important}
+.s14 .sep{border-top:3px dotted rgba(28,43,74,.45)!important}
+.s14 .view .card{border-top:4px dotted var(--ink)!important}
+.s14 .view .card.toolbar{border-top:0!important;border-bottom:4px dotted var(--ink)!important}
+.s14 .tl li,.s14 .ach,.s14 .msgr,.s14 .lbr{border-bottom:3px dotted rgba(28,43,74,.4)!important}
+.s14 input,.s14 select,.s14 textarea{background:#dde8f3!important}
+.s14 input:focus,.s14 select:focus,.s14 textarea:focus{background:#fff!important}
+.s14 .btn:focus-visible,.s14 .wide:focus-visible{outline:3px dashed currentColor!important;outline-offset:3px}
