@@ -178,7 +178,7 @@ export function RequestsModal({ onClose }) {
   const ok = (nm) => {
     const t = S.user && S.teams[S.user];
     if (!t) return toast('Сначала войдите и создайте команду', 'warn');
-    if (t.members.length >= t.size) return toast('Команда заполнена: увеличьте размер в форме команды', 'warn');
+    if (t.members.length >= Math.min(t.size, 5)) return toast('Команда заполнена: максимум 5 участников', 'warn');
     update((d) => { const tt = d.teams[d.user]; if (!tt.members.includes(nm)) tt.members.push(nm); d.reqs--; d.reqIdx++; });
     toast(nm + ' в вашей команде', 'ok'); gainXp(5);
   };

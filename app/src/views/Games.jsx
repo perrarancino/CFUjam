@@ -52,7 +52,7 @@ export default function Games() {
 
   return (
     <>
-      <Banner img="w05" title="Игры" text="Работы участников: ищи, фильтруй и голосуй. Сейчас здесь заглушки, потом будут обложки настоящих игр." />
+      <Banner img="w05" title="Игры" text="Работы участников: ищи, фильтруй и голосуй. Примеры обложек созданы для демонстрации." />
       <div className="card toolbar pull">
         <div className="tb-row">
           <div className="field gsearch"><label htmlFor="g-search">Поиск</label><input id="g-search" type="search" placeholder="Название, жанр или движок…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -87,7 +87,7 @@ export default function Games() {
           const on = iLiked(g.id);
           return (
             <article className="gcard" key={g.id} data-id={g.id} data-owner={g.owner}>
-              <div className="cover"><img src={`img/${g.cover}.jpg`} srcSet={`img/s/${g.cover}.jpg 360w, img/q/${g.cover}.jpg 540w, img/${g.cover}.jpg 720w`} sizes="(max-width:700px) 90vw, 32vw" alt="" loading="lazy" decoding="async" /></div>
+              <div className="cover"><img src={`img/generated/${g.cover}.png`} alt="" loading="lazy" decoding="async" /></div>
               <div className="gshade" />
               <div className="gbody">
                 <h4>{g.title}</h4>

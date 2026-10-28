@@ -1,6 +1,6 @@
 # Источники фотографий
 
-Все изображения взяты с Wikimedia Commons и распространяются по свободным лицензиям (CC0, Public domain, CC BY, CC BY-SA).
+Текущие изображения созданы или предоставлены для оформления. Ниже сохранены источники изображений из предыдущей версии, которые остаются в проекте.
 Для лицензий CC BY и CC BY-SA нужно указывать автора и источник, как ниже. Фото временные: потом их заменят обложки игр участников.
 
 - `img/c01.jpg` — «Chunithm Paradise Lost Danbury R1.jpg», автор: Reconrabbit, лицензия: CC0, источник: https://commons.wikimedia.org/wiki/File:Chunithm_Paradise_Lost_Danbury_R1.jpg
@@ -33,7 +33,4 @@
 
 - Пиксельные иконки: [Pixel Icon Library](https://pixeliconlibrary.com) © HackerNoon, лицензия CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), изменений в иконках нет. Файлы: `pixel-icons/hn/`.
 - Пиксельные иконки: [pixelarticons](https://github.com/halfmage/pixelarticons), лицензия MIT. Файлы: `pixel-icons/`.
-- Шрифт Handjet (Google Fonts), лицензия SIL OFL 1.1. Файлы: `fonts/`.
-
-## Phosphor Icons
-Иконки интерфейса: Phosphor Icons (https://phosphoricons.com), лицензия MIT.
+- Шрифт Pixellari — Zacchary Dempsey (ZedSeven), кириллическая версия YuRaNnNzZZ: https://github.com/YuRaNnNzZZ/PixellariCyrillic. Лицензия SIL OFL 1.1: `fonts/Pixellari-LICENSE.txt`.

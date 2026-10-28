@@ -67,7 +67,7 @@ export default function Teams() {
   };
 
   const members = team ? team.members : DEFAULT_STACK;
-  const total = team ? Math.max(team.size, team.members.length) : 6;
+  const total = team ? Math.max(team.size, team.members.length) : 5;
   return (
     <>
       <Banner img="w04" title="Команды" text="Создай команду, следи за составом и загружай сборку." />
@@ -83,7 +83,7 @@ export default function Teams() {
                 <option>Программирование</option><option>Графика</option><option>Звук</option><option>Геймдизайн</option>
               </select>
             </Field>
-            <Range id="rg-team" min={1} max={6} value={f.size} onChange={setSize} label={{ text: 'Размер команды' }} />
+            <Range id="rg-team" min={1} max={5} value={f.size} onChange={setSize} label={{ text: 'Размер команды' }} />
             <div className="row"><button className="btn dark" id="mk-team" type="button" onClick={create}><Icon n="rocket" />Создать команду</button></div>
           </div>
         </div>

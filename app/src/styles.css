@@ -782,15 +782,16 @@ html{overflow-y:scroll;scrollbar-gutter:stable}
 
 @font-face{font-family:'Handjet';font-style:normal;font-weight:100 650;font-display:swap;src:url(/fonts/hjg500.woff) format('woff')}
 @font-face{font-family:'Handjet';font-style:normal;font-weight:651 900;font-display:swap;src:url(/fonts/hjg800.woff) format('woff')}
+@font-face{font-family:'Pixellari';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/Pixellari.ttf') format('truetype')}
 body.s14,body.s14 *{font-synthesis:none}
 /* ===== Стиль №14: «Солнечный» — светлая тёплая палитра, пиксельные шрифты и иконки, плавные пружинные анимации ===== */
-.s14{--ink:#1c2b4a;--bg:#eaf1f6;--fg:#1c2b4a;--muted:#5d6785;--card:#fff;--card-solid:#fff;--line:#1c2b4a;--line-strong:#1c2b4a;--a:#3f5fcf;--a2:#2f8f9d;--on-a:#fff;--font:'Handjet','Courier New',monospace;--font-title:'Handjet','Courier New',monospace;--track:#d5e1ee;--inp:#f7fafd;--c-part:#6aa6e8;--c-mentor:#8b6cf0;--c-org:#ff8a3d;--c-jury:#2f8f9d;--c-win:#e0a800;--c-ok:#19a56f;--c-warn:#e0890a;--c-err:#e0423a;--c-info:#6aa6e8;--gapc:#fff;--mus:#9db6f0;--sun:#9db6f0;--teal:#2f8f9d;--sky:#6aa6e8;--lil:#8a86d8;--coral:#3f5fcf;--mint:#a9d9e3;--cream:#fff;--pb:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink);--rs:0px;--r:0px;--ar:0px;-webkit-font-smoothing:antialiased;text-rendering:auto}
-body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74,.12) 1.3px,transparent 1.7px);background-size:22px 22px;background-attachment:scroll;font-family:'Handjet','Courier New',monospace;font-weight:500;font-size:23px;line-height:1.15;letter-spacing:.02em}
+.s14{--ink:#1c2b4a;--bg:#eaf1f6;--fg:#1c2b4a;--muted:#5d6785;--card:#fff;--card-solid:#fff;--line:#1c2b4a;--line-strong:#1c2b4a;--a:#3f5fcf;--a2:#2f8f9d;--on-a:#fff;--font:'Pixellari','Courier New',monospace;--font-title:'Pixellari','Courier New',monospace;--track:#d5e1ee;--inp:#f7fafd;--c-part:#6aa6e8;--c-mentor:#8b6cf0;--c-org:#ff8a3d;--c-jury:#2f8f9d;--c-win:#e0a800;--c-ok:#19a56f;--c-warn:#e0890a;--c-err:#e0423a;--c-info:#6aa6e8;--gapc:#fff;--mus:#9db6f0;--sun:#9db6f0;--teal:#2f8f9d;--sky:#6aa6e8;--lil:#8a86d8;--coral:#3f5fcf;--mint:#a9d9e3;--cream:#fff;--pb:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink);--rs:0px;--r:0px;--ar:0px;-webkit-font-smoothing:antialiased;text-rendering:auto}
+body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74,.12) 1.3px,transparent 1.7px);background-size:22px 22px;background-attachment:scroll;font-family:'Pixellari','Courier New',monospace;font-weight:500;font-size:23px;line-height:1.15;letter-spacing:.02em}
 .s14 *,.s14 *::before,.s14 *::after{border-radius:0!important}
 .s14 .rd,.s14 .pt{border-radius:0!important}
 
 /* ---------- шрифты ---------- */
-.s14 h1,.s14 h2,.s14 h3,.s14 h4,.s14 .btn,.s14 .tabsnav a,.s14 .wide,.s14 .badge,.s14 .chip,.s14 .tag,.s14 .lbl,.s14 .seg span,.s14 .count b,.s14 .count small,.s14 .facts b,.s14 .stats b,.s14 .rk,.s14 .sc,.s14 .lvl,.s14 .cnt,.s14 .gen,.s14 .shot-label,.s14 .step,.s14 .gal-steps b,.s14 .eyebrow,.s14 .brand,.s14 .uname,.s14 .tl b,.s14 .rangebox,.s14 .bar-l,.s14 .field label,.s14 .tabs button{font-family:'Handjet','Courier New',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.s14 h1,.s14 h2,.s14 h3,.s14 h4,.s14 .btn,.s14 .tabsnav a,.s14 .wide,.s14 .badge,.s14 .chip,.s14 .tag,.s14 .lbl,.s14 .seg span,.s14 .count b,.s14 .count small,.s14 .facts b,.s14 .stats b,.s14 .rk,.s14 .sc,.s14 .lvl,.s14 .cnt,.s14 .gen,.s14 .shot-label,.s14 .step,.s14 .gal-steps b,.s14 .eyebrow,.s14 .brand,.s14 .uname,.s14 .tl b,.s14 .rangebox,.s14 .bar-l,.s14 .field label,.s14 .tabs button{font-family:'Pixellari','Courier New',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .s14 .tabsnav a{font-size:21px;line-height:1;padding:10px 13px;gap:6px}
 .s14 .btn{font-size:21px;line-height:1;padding:13px 22px}
 .s14 .btn.sm{font-size:20px;padding:9px 14px}
@@ -837,7 +838,7 @@ body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74
 /* ---------- шапка главной: «экран-заставка» ---------- */
 .s14 .gal{padding-top:124px}
 .s14 .gal::before,.s14 .gal::after{display:none}
-.s14 .gtitle{font-family:'Handjet','Courier New',monospace;font-weight:700;font-size:clamp(84px,13vw,190px);line-height:.82;letter-spacing:.02em;color:var(--ink);text-shadow:4px 4px 0 var(--coral),8px 8px 0 var(--mus),12px 12px 0 var(--teal);margin:6px 0 26px}
+.s14 .gtitle{font-family:'Pixellari','Courier New',monospace;font-weight:700;font-size:clamp(84px,13vw,190px);line-height:.82;letter-spacing:.02em;color:var(--ink);text-shadow:4px 4px 0 var(--coral),8px 8px 0 var(--mus),12px 12px 0 var(--teal);margin:6px 0 26px}
 .s14 .gal .lead{font-size:18px;max-width:640px;color:var(--ink);letter-spacing:-.07em;line-height:1.55}
 .s14 .stage{margin-top:40px}
 .s14 .stage::after{display:none}
@@ -846,10 +847,10 @@ body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74
 .s14 .slide .in::after{background:repeating-linear-gradient(0deg,rgba(28,43,74,.16) 0 2px,transparent 2px 4px),linear-gradient(transparent 55%,rgba(30,24,60,.78))}
 .s14 .slide img{filter:contrast(1.08) saturate(1.18)}
 .s14 .slide .gen{background:var(--mus);color:var(--ink);padding:3px 9px;font-size:18px;box-shadow:0 0 0 3px var(--ink);top:14px;left:14px}
-.s14 .slide figcaption{font-family:'Handjet',monospace;font-weight:700;font-size:clamp(17px,1.5vw,24px);text-transform:uppercase;letter-spacing:.04em;text-shadow:2px 2px 0 var(--ink)}
+.s14 .slide figcaption{font-family:'Pixellari',monospace;font-weight:700;font-size:clamp(17px,1.5vw,24px);text-transform:uppercase;letter-spacing:.04em;text-shadow:2px 2px 0 var(--ink)}
 .s14 .gal-steps{gap:clamp(20px,5vw,80px);margin-top:34px}
 .s14 .gal-steps b{font-size:24px;color:var(--coral)}
-.s14 .gal-steps span{font-family:'Handjet',monospace;font-size:24px;font-weight:700;text-transform:uppercase}
+.s14 .gal-steps span{font-family:'Pixellari',monospace;font-size:24px;font-weight:700;text-transform:uppercase}
 .s14 .count{gap:clamp(14px,3vw,44px);margin-top:44px}
 .s14 .count div{background:transparent;padding:0;box-shadow:none}
 .s14 .count b{font-size:clamp(54px,6vw,84px);line-height:.9;color:var(--ink);text-shadow:3px 3px 0 var(--mus)}
@@ -942,7 +943,7 @@ body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74
 .s14 .av[class*="r-"]::before{inset:-3px;background:var(--ring)}
 .s14 .av.on::after,.s14 .av.away::after,.s14 .av.off::after{border-radius:0;border-color:var(--ink);border-width:3px}
 .s14 .mk{border-radius:0;box-shadow:0 0 0 3px var(--ink)}
-.s14 .av.more .face{background:var(--mus);color:var(--ink);font-family:'Handjet',monospace;font-weight:900}
+.s14 .av.more .face{background:var(--mus);color:var(--ink);font-family:'Pixellari',monospace;font-weight:900}
 .s14 .avstack .av{margin-left:-8px}
 .s14 .gfoot .avstack .av{--gapc:var(--ink)}
 .s14 .gfoot .face{border-color:var(--cream)}
@@ -982,10 +983,10 @@ body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74
 .s14 .cnt{background:var(--coral);color:var(--cream);box-shadow:0 0 0 3px var(--ink);font-size:17px;min-width:24px;height:24px}
 .s14 .ach{background:transparent;border-bottom:3px dotted rgba(28,43,74,.4)}
 .s14 .ach .ai{background:var(--mus);color:var(--ink);box-shadow:0 0 0 3px var(--ink)}
-.s14 .ach b{font-family:'Handjet',monospace;font-size:24px;text-transform:uppercase;letter-spacing:.03em}
+.s14 .ach b{font-family:'Pixellari',monospace;font-size:24px;text-transform:uppercase;letter-spacing:.03em}
 .s14 .alert{background:var(--cream);border:0;box-shadow:var(--pb);margin:4px;border-radius:0}
 .s14 .alert .aic{background:var(--c);color:var(--cream);box-shadow:0 0 0 3px var(--ink)}
-.s14 .alert b{font-family:'Handjet',monospace;font-size:21px;text-transform:uppercase;color:var(--ink)}
+.s14 .alert b{font-family:'Pixellari',monospace;font-size:21px;text-transform:uppercase;color:var(--ink)}
 .s14 .bar{background:var(--cream);height:22px;box-shadow:var(--pb);margin:4px;border-radius:0}
 .s14 .bar i{background:repeating-linear-gradient(90deg,var(--teal) 0 12px,#27968b 12px 16px)}
 .s14 .bar-l{font-size:19px}
@@ -1029,20 +1030,20 @@ body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74
 .s14 .gfoot .btn.light{box-shadow:var(--pb),inset -4px -4px 0 rgba(0,0,0,.18)}
 
 .s14 .step{font-size:20px}
-.s14 .step i{font-family:'Handjet',monospace;font-size:22px}
+.s14 .step i{font-family:'Pixellari',monospace;font-size:22px}
 
 @media(max-width:700px){.s14 .gal{padding-top:170px}.s14 .gal .lead{font-size:17px}.s14 .vbanner{padding-top:170px}}
 
-.s14 .gal .lead{font-family:'Handjet','Courier New',monospace;font-weight:500;font-size:28px;letter-spacing:.02em;line-height:1.2}
+.s14 .gal .lead{font-family:'Pixellari','Courier New',monospace;font-weight:500;font-size:28px;letter-spacing:.02em;line-height:1.2}
 @media(max-width:700px){.s14 .gal .lead{font-size:26px}}
 
-.s14 .vb-in p,.s14 input,.s14 textarea,.s14 select,.s14 .view p,.s14 .view li,.s14 .view small,.s14 .credit-note{font-family:'Handjet','Courier New',monospace;font-weight:500;letter-spacing:.02em}
+.s14 .vb-in p,.s14 input,.s14 textarea,.s14 select,.s14 .view p,.s14 .view li,.s14 .view small,.s14 .credit-note{font-family:'Pixellari','Courier New',monospace;font-weight:500;letter-spacing:.02em}
 .s14 .vb-in p{font-size:26px;line-height:1.2}
 .s14 .view p,.s14 .view li{font-size:22px;line-height:1.25}
 .s14 input,.s14 textarea,.s14 select{font-size:22px}
 
-.s14 ::placeholder{font-family:'Handjet','Courier New',monospace;font-weight:500;letter-spacing:.02em;font-size:22px;opacity:.55}
-.s14 .field small,.s14 .hintp,.s14 small,.s14 .lbl,.s14 .field label,.s14 .stats small,.s14 .count small,.s14 .facts small{font-family:'Handjet','Courier New',monospace;font-weight:500;letter-spacing:.03em}
+.s14 ::placeholder{font-family:'Pixellari','Courier New',monospace;font-weight:500;letter-spacing:.02em;font-size:22px;opacity:.55}
+.s14 .field small,.s14 .hintp,.s14 small,.s14 .lbl,.s14 .field label,.s14 .stats small,.s14 .count small,.s14 .facts small{font-family:'Pixellari','Courier New',monospace;font-weight:500;letter-spacing:.03em}
 .s14 .field small,.s14 .hintp,.s14 small{font-size:19px}
 .s14 .field label{font-size:21px}
 .s14 .lbl{font-size:20px}
@@ -1367,3 +1368,25 @@ body.s14{background-color:#eaf1f6;background-image:radial-gradient(rgba(28,43,74
 .s14 .avbtn .av .face{width:100%;height:100%;border:0!important}
 }
 @media(max-width:700px){.s14 .avbtn{height:54px;width:54px;padding:0!important}.s14 .avbtn .av{width:100%!important;height:100%!important}}
+
+/* Pixellari is wider than Handjet; keep headings and interface text within their layouts. */
+.s14{font-synthesis: none}
+body.s14{font-size:18px;line-height:1.3}
+.s14 .gtitle{font-size:clamp(58px,7.1vw,104px);line-height:1;letter-spacing:0}
+.s14 .gal .lead{font-size:19px;line-height:1.4;letter-spacing:0}
+.s14 .eyebrow{font-size:16px;letter-spacing:0}
+.s14 .count b,.s14 .facts b{font-size:clamp(32px,4vw,54px)}
+.s14 .vb-in h2{font-size:clamp(40px,5vw,72px);line-height:1}
+.s14 .big-foot h3,.s14 .view .card h3{font-size:clamp(24px,2.5vw,38px);line-height:1.1}
+@media(max-width:700px){.s14 .gtitle{font-size:clamp(45px,12vw,76px)}.s14 .gal .lead{font-size:17px}}
+
+/* Let the wider pixel font fit and wrap within cards. */
+.s14 .stepcards li,.s14 .grid > *,.s14 .big-foot > *,.s14 .pin > *{min-width:0}
+.s14 .stepcards h3{font-size:clamp(19px,1.6vw,26px);line-height:1.15;letter-spacing:0;overflow-wrap:anywhere}
+.s14 .stepcards p{font-size:20px;line-height:1.3;overflow-wrap:anywhere}
+.s14 .steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.s14 .prof .pin .step{min-width:0;font-size:clamp(11px,1vw,15px);line-height:1.2;letter-spacing:0;overflow-wrap:anywhere}
+.s14 .card h3,.s14 .prof h3,.s14 .gbody h4,.s14 .big-foot h3,.s14 .alert div{min-width:0;overflow-wrap:anywhere}
+.s14 .count div{max-width:100%;min-width:0}
+.s14 .count b{overflow-wrap:anywhere;line-height:1.1}
+@media(max-width:700px){.s14 .stepcards h3{font-size:clamp(17px,4vw,24px)}.s14 .stepcards p{font-size:18px}.s14 .prof .pin .step{font-size:12px}}

@@ -32,5 +32,5 @@ npm run build    # сборка в app/dist
 ## Данные и лицензии
 
 - Фото: Wikimedia Commons, свободные лицензии — `CREDITS.md`, `credits.html`.
-- Шрифт Handjet: SIL OFL 1.1 (в проекте — упрощённая статичная версия).
+- Шрифт Pixellari Cyrillic: SIL OFL 1.1, авторы Zacchary Dempsey и YuRaNnNzZZ.
 - Иконки: Pixel Icon Library © HackerNoon (CC BY 4.0) и pixelarticons (MIT).

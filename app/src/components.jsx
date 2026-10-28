@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { asset, faceSvg, hue, shapeIdx } from './lib.js';
+import { bannerImage } from './data.js';
 import { useApp } from './store.jsx';
 
 /* иконка: набор масок описан в styles.css (.ico-имя) */
@@ -22,7 +23,7 @@ export function Avatar({ name, cls = '', mark }) {
 /* баннер вкладки */
 export function Banner({ img, title, text }) {
   return (
-    <header className="vbanner" style={{ '--img': `url(${asset(`img/${img}.jpg`)})`, '--imgm': `url(${asset(`img/m/${img}.jpg`)})` }}>
+    <header className="vbanner" style={{ '--img': `url(${asset(bannerImage(img))})`, '--imgm': `url(${asset(bannerImage(img))})` }}>
       <div className="vb-in"><h2>{title}</h2><p>{text}</p></div>
     </header>
   );
