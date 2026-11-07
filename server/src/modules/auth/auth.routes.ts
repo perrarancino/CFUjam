@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { comparePassword, hashPassword } from '../../lib/auth.js';
+import { comparePassword, hashPassword, issueTokens, revokeAllUserTokens, revokeToken, rotateRefreshToken } from '../../lib/auth.js';
 import { prisma } from '../../lib/prisma.js';
 import { sanitizePlainText } from '../../lib/sanitizer.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
@@ -81,14 +81,18 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
     });
 
-    const token = fastify.jwt.sign({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role
-    });
+    const tokens = await issueTokens(
+      { id: user.id, username: user.username, email: user.email, role: user.role },
+      fastify.jwt.sign.bind(fastify.jwt)
+    );
 
-    return reply.status(201).send({ user, token });
+    return reply.status(201).send({
+      user,
+      token: tokens.accessToken, // для обратной совместимости
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn
+    });
   });
 
   // Вход (Строгий Rate Limit: максимум 5 попыток в минуту на IP для защиты от подбора паролей)
@@ -117,12 +121,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Unauthorized', message: 'Неверный пароль' });
     }
 
-    const token = fastify.jwt.sign({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role
-    });
+    const tokens = await issueTokens(
+      { id: user.id, username: user.username, email: user.email, role: user.role },
+      fastify.jwt.sign.bind(fastify.jwt)
+    );
 
     return {
       user: {
@@ -135,8 +137,46 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         level: user.level,
         avatarUrl: user.avatarUrl
       },
-      token
+      token: tokens.accessToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn
     };
+  });
+
+  // Обновление Access-токена через Refresh-токен
+  fastify.post('/refresh', async (request, reply) => {
+    const { refreshToken } = request.body as { refreshToken?: string };
+    if (!refreshToken) {
+      return reply.status(400).send({ error: 'BadRequest', message: 'Не передан refreshToken' });
+    }
+
+    const newTokens = await rotateRefreshToken(refreshToken, fastify.jwt.sign.bind(fastify.jwt));
+    if (!newTokens) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'Refresh-токен недействителен или истек' });
+    }
+
+    return {
+      token: newTokens.accessToken,
+      accessToken: newTokens.accessToken,
+      refreshToken: newTokens.refreshToken,
+      expiresIn: newTokens.expiresIn
+    };
+  });
+
+  // Выход из системы (отзыв текущей сессии)
+  fastify.post('/logout', async (request) => {
+    const { refreshToken } = request.body as { refreshToken?: string };
+    if (refreshToken) {
+      await revokeToken(refreshToken);
+    }
+    return { message: 'Успешный выход из системы' };
+  });
+
+  // Выход со всех устройств (смена пароля / компрометация)
+  fastify.post('/revoke-all', { preHandler: requireAuth }, async (request) => {
+    await revokeAllUserTokens(request.user!.id);
+    return { message: 'Все активные сессии успешно завершены' };
   });
 
   // Текущий профиль

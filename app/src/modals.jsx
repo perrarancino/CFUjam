@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { api } from './api.js';
 import { Avatar, Check, Field, Icon, Modal } from './components.jsx';
 import { CHK, hash, userRec } from './lib.js';
 import { useApp } from './store.jsx';
@@ -17,26 +18,59 @@ function AuthForm({ tab, setTab, close }) {
     } else setErr((x) => ({ ...x, [k]: '' }));
   };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (tab === 'in') {
       const l = v.login.trim();
       const u = userRec(S, l) || S.users.find((x) => x.email.toLowerCase() === l.toLowerCase());
-      const e1 = !l ? 'Введите ник или почту' : !u ? 'Пользователь не найден' : '';
-      const e2 = !v.pass ? 'Введите пароль' : u && u.pw !== hash(v.pass) ? 'Неверный пароль' : '';
+      const e1 = !l ? 'Введите ник или почту' : '';
+      const e2 = !v.pass ? 'Введите пароль' : '';
       setErr({ login: e1, pass: e2 });
       if (e1 || e2) return;
-      update((d) => { d.user = u.nick; });
-      close(); toast('С возвращением, ' + u.nick + '!', 'ok');
+
+      // 1. Попытка авторизации на реальном сервере
+      try {
+        const res = await api.login(l, v.pass);
+        if (res && res.user) {
+          update((d) => { d.user = res.user.username; d.isOnline = true; });
+          close();
+          toast('С возвращением, ' + res.user.username + '!', 'ok');
+          return;
+        }
+      } catch {
+        // Сервер недоступен или локальный пользователь -> проверяем локально
+        if (u && u.pw === hash(v.pass)) {
+          update((d) => { d.user = u.nick; });
+          close();
+          toast('С возвращением, ' + u.nick + '!', 'ok');
+          return;
+        }
+        setErr({ login: !u ? 'Пользователь не найден' : '', pass: u && u.pw !== hash(v.pass) ? 'Неверный пароль' : '' });
+      }
     } else {
       const nick = v.nick.trim(), email = v.email.trim();
       const errs = { nick: CHK.nick(S, nick), email: CHK.email(email), pass: CHK.pass(v.pass), rules: v.rules ? '' : 'Нужно принять правила' };
       if (!errs.email && S.users.some((x) => x.email.toLowerCase() === email.toLowerCase())) errs.email = 'Эта почта уже зарегистрирована';
       setErr(errs);
       if (Object.values(errs).some(Boolean)) return;
-      update((d) => { d.users.push({ nick, email, pw: hash(v.pass), at: Date.now() }); d.user = nick; });
-      close(); toast('Аккаунт создан. Добро пожаловать, ' + nick + '!', 'ok');
-      setTimeout(() => gainXp(10), 0);
+
+      // 1. Попытка регистрации на сервере
+      try {
+        const res = await api.register(nick, email, v.pass);
+        if (res && res.user) {
+          update((d) => { d.user = res.user.username; d.isOnline = true; });
+          close();
+          toast('Аккаунт создан. Добро пожаловать, ' + nick + '!', 'ok');
+          setTimeout(() => gainXp(10), 0);
+          return;
+        }
+      } catch {
+        // Оффлайн fallback
+        update((d) => { d.users.push({ nick, email, pw: hash(v.pass), at: Date.now() }); d.user = nick; });
+        close();
+        toast('Аккаунт создан. Добро пожаловать, ' + nick + '!', 'ok');
+        setTimeout(() => gainXp(10), 0);
+      }
     }
   };
 
@@ -97,7 +131,7 @@ export function OAuthModal({ id, onClose }) {
   const pv = PROV[id];
   const allow = (close) => {
     update((d) => {
-      d.demo = id;                                  /* с этого момента состояние не пишется в localStorage */
+      d.demo = id;
       if (!userRec(d, pv.nick)) d.users.push({ nick: pv.nick, email: pv.mail, pw: '', at: Date.now(), demo: id });
       d.user = pv.nick;
     });

@@ -86,19 +86,33 @@ export const fileRoutes: FastifyPluginAsync = async (fastify) => {
     const { key, fileName, fileSize, platform } = parse.data;
     const downloadUrl = await storage.getPresignedDownloadUrl(key);
 
-    // Удаляем предыдущую запись этого типа платформы (если была)
+    // ФИЗИЧЕСКАЯ ЗАЧИСТКА S3: Находим старый файл этой платформы и удаляем его из S3
+    const oldFiles = await prisma.submissionFile.findMany({
+      where: { submissionId: id, platform }
+    });
+
+    for (const oldFile of oldFiles) {
+      if (oldFile.fileKey) {
+        await storage.deleteFile(oldFile.fileKey).catch((err) => {
+          request.log.warn({ err, key: oldFile.fileKey }, 'Не удалось удалить старый файл из хранилища');
+        });
+      }
+    }
+
+    // Удаляем предыдущую запись этого типа платформы из БД
     await prisma.submissionFile.deleteMany({
       where: { submissionId: id, platform }
     });
 
-    // Создаем запись файла
+    // Создаем запись файла с сохранением fileKey для будущей зачистки
     const file = await prisma.submissionFile.create({
       data: {
         submissionId: id,
         platform,
         fileName,
         fileSize: BigInt(fileSize),
-        fileUrl: downloadUrl
+        fileUrl: downloadUrl,
+        fileKey: key
       }
     });
 
@@ -107,6 +121,11 @@ export const fileRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const zipBuffer = await storage.getFileBuffer(key);
         const webglDir = path.resolve(process.cwd(), 'public', 'webgl', id);
+
+        // Очищаем старую распакованную версию WebGL, если была
+        if (fs.existsSync(webglDir)) {
+          fs.rmSync(webglDir, { recursive: true, force: true });
+        }
 
         const result = ArchiveSecurity.safeExtract(zipBuffer, webglDir);
 

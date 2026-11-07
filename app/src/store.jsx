@@ -1,13 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { api } from './api.js';
 
-/* Состояние всего приложения. Данные хранятся в localStorage браузера (прототип без сервера).
-   В демо-входе (VK / Google) ничего не пишется — см. S.demo. */
+/* Состояние приложения (Гибридный режим: Реальный бэкенд API + оффлайн fallback) */
 
 const KEY = 'cfujam11';
 export const DEF_OPTS = { notify: true, team: false, snow: true, look: true, mentor: false, anim: true };
 
 function load() {
-  let S = { user: null, users: [], teams: {}, games: [], likes: {}, prog: {}, opts: DEF_OPTS, role: 'Программист', msgs: 3, reqs: 12, reqIdx: 0, demo: null };
+  let S = {
+    user: null,
+    users: [],
+    teams: {},
+    games: [],
+    likes: {},
+    prog: {},
+    opts: DEF_OPTS,
+    role: 'Программист',
+    msgs: 3,
+    reqs: 12,
+    reqIdx: 0,
+    demo: null,
+    isOnline: false,
+    jam: null
+  };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -26,7 +41,7 @@ export function AppProvider({ children }) {
   const ref = useRef(S);
   ref.current = S;
 
-  /* сохранение (кроме демо-сессии) */
+  /* Сохранение в localStorage */
   useEffect(() => {
     if (S.demo) return;
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* пусто */ }
@@ -65,6 +80,89 @@ export function AppProvider({ children }) {
     if (up) toast('Новый уровень: LVL ' + up, 'ok');
   }, [update, toast]);
 
-  const value = useMemo(() => ({ S, update, toast, toasts, modal, openModal, closeModal, needAuth, gainXp, progOf, ref }), [S, update, toast, toasts, modal, openModal, closeModal, needAuth, gainXp]);
+  /* ГИБРИДНАЯ СВЯЗКА: Загрузка живых данных с бэкенда при старте */
+  useEffect(() => {
+    let cleanupSse = null;
+
+    async function hydrate() {
+      try {
+        // 1. Проверяем текущего авторизованного пользователя
+        if (api.getToken()) {
+          const me = await api.getMe().catch(() => null);
+          if (me) {
+            update((d) => {
+              d.user = me.username;
+              d.isOnline = true;
+              d.prog[me.username] = { xp: me.xp || 10, lvl: me.level || 1 };
+            });
+          } else {
+            api.logout();
+          }
+        }
+
+        // 2. Подтягиваем текущий джем и статус
+        const currentJam = await api.getCurrentJam().catch(() => null);
+        if (currentJam) {
+          update((d) => {
+            d.jam = currentJam;
+            d.isOnline = true;
+          });
+
+          // Подключаем живой SSE поток событий джема
+          cleanupSse = api.connectLiveStream(currentJam.slug || 'current', (event, data) => {
+            if (event === 'PHASE_CHANGED') {
+              toast(`Статус джема изменился: ${data.status}`, 'info');
+              update((d) => { if (d.jam) d.jam.status = data.status; });
+            }
+          });
+        }
+
+        // 3. Подтягиваем живые игры с сервера
+        const liveGames = await api.getSubmissions('current').catch(() => null);
+        if (Array.isArray(liveGames) && liveGames.length > 0) {
+          update((d) => {
+            // Обогащаем список игр реальными данными с сервера
+            const existingIds = new Set(d.games.map((g) => g.id));
+            for (const lg of liveGames) {
+              if (!existingIds.has(lg.id)) {
+                d.games.push({
+                  id: lg.id,
+                  title: lg.title,
+                  owner: lg.team?.name || 'Команда',
+                  dir: lg.engine || 'Unity',
+                  coverUrl: lg.coverUrl,
+                  webPlayableUrl: lg.webPlayableUrl,
+                  likesCount: lg.likesCount || 0
+                });
+              }
+            }
+          });
+        }
+      } catch {
+        // Бэкенд выключен -> остаемся в оффлайн-прототипе
+      }
+    }
+
+    hydrate();
+
+    return () => {
+      if (cleanupSse) cleanupSse();
+    };
+  }, [update, toast]);
+
+  const value = useMemo(() => ({
+    S,
+    update,
+    toast,
+    toasts,
+    modal,
+    openModal,
+    closeModal,
+    needAuth,
+    gainXp,
+    progOf,
+    ref
+  }), [S, update, toast, toasts, modal, openModal, closeModal, needAuth, gainXp]);
+
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
