@@ -1,8 +1,9 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { resolveJam } from '../../lib/jamResolver.js';
 import { sanitizeJamTheme } from '../../lib/jamScheduler.js';
 import { prisma } from '../../lib/prisma.js';
-import { requireAuth } from '../../middlewares/authGuard.js';
+import { optionalAuth, requireAuth } from '../../middlewares/authGuard.js';
 
 // Библиотека готовых параметров голосования (пресетов), из которых организация может выбирать
 export const CRITERIA_PRESETS = [
@@ -202,6 +203,138 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     return sanitizeJamTheme(jam);
+  });
+
+  // Контекст текущей сессии пользователя в рамках конкретного джема (RBAC / Права и обязанности)
+  fastify.get('/:slug/session', { preHandler: optionalAuth }, async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const jam = await resolveJam(slug, request);
+    if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
+
+    const currentUserId = request.user?.id;
+
+    // 1. ГОСТЬ (неавторизован)
+    if (!currentUserId) {
+      return {
+        user: null,
+        jam: { id: jam.id, slug: jam.slug, title: jam.title, status: jam.status },
+        role: 'GUEST',
+        team: null,
+        qualification: null,
+        permissions: {
+          canCreateTeam: false,
+          canJoinTeam: false,
+          canSubmitGame: false,
+          canUploadBuilds: false,
+          canVote: false,
+          canManageJam: false,
+          canEditCriteria: false
+        }
+      };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { id: true, username: true, displayName: true, avatarUrl: true, role: true, xp: true, level: true }
+    });
+
+    // Проверяем статус организатора
+    const isPlatformAdmin = user?.role === 'ADMIN';
+    const isJamCreator = jam.organizerId === currentUserId;
+    let isOrgAdmin = false;
+    if (jam.organizationId) {
+      const orgMem = await prisma.orgMember.findUnique({
+        where: { userId_organizationId: { userId: currentUserId, organizationId: jam.organizationId } }
+      });
+      isOrgAdmin = orgMem?.role === 'OWNER' || orgMem?.role === 'ADMIN';
+    }
+    const isOrganizer = isPlatformAdmin || isJamCreator || isOrgAdmin;
+
+    // Проверяем статус официального судьи
+    const judgeRecord = await prisma.jamJudge.findUnique({
+      where: { jamId_userId: { jamId: jam.id, userId: currentUserId } }
+    });
+    const isJudge = !!judgeRecord;
+
+    // Ищем команду пользователя в этом джеме
+    const membership = await prisma.teamMember.findFirst({
+      where: {
+        userId: currentUserId,
+        team: { jamId: jam.id }
+      },
+      include: {
+        team: {
+          include: {
+            submission: true,
+            members: {
+              include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } }
+            }
+          }
+        }
+      }
+    });
+
+    const team = membership?.team || null;
+    const isLeader = team ? team.leaderId === currentUserId : false;
+    const isParticipant = !!team;
+
+    // Определение главной роли в контексте этого джема
+    let role = 'SPECTATOR';
+    if (isOrganizer) role = 'ORGANIZER';
+    else if (isJudge) role = 'JUDGE';
+    else if (isLeader) role = 'TEAM_LEADER';
+    else if (isParticipant) role = 'PARTICIPANT';
+
+    // Прогресс судейства (минимум 10 игр)
+    let qualification = null;
+    if (isParticipant || role === 'SPECTATOR' || role === 'JUDGE') {
+      const myVotes = await prisma.vote.groupBy({
+        by: ['submissionId'],
+        where: {
+          userId: currentUserId,
+          submission: { jamId: jam.id }
+        }
+      });
+      const reviewedCount = myVotes.length;
+      qualification = {
+        reviewedCount,
+        requiredCount: 10,
+        isQualified: reviewedCount >= 10
+      };
+    }
+
+    // Вычисляемые разрешения для UI фронтенда
+    const isOpenForTeams = ['UPCOMING', 'RUNNING'].includes(jam.status);
+    const isOpenForSubmissions = ['RUNNING', 'GRACE_PERIOD'].includes(jam.status);
+    const isOpenForVoting = jam.status === 'VOTING';
+
+    const permissions = {
+      canCreateTeam: !isParticipant && isOpenForTeams,
+      canJoinTeam: !isParticipant && isOpenForTeams,
+      canSubmitGame: isLeader && isOpenForSubmissions,
+      canUploadBuilds: isParticipant && isOpenForSubmissions,
+      canVote: isOpenForVoting && (isJudge || (!isLeader && qualification !== null)),
+      canManageJam: isOrganizer,
+      canEditCriteria: isOrganizer && ['DRAFT', 'UPCOMING', 'RUNNING'].includes(jam.status)
+    };
+
+    return {
+      user,
+      jam: {
+        id: jam.id,
+        slug: jam.slug,
+        title: jam.title,
+        status: jam.status,
+        votingType: jam.votingType,
+        gracePeriodMinutes: jam.gracePeriodMinutes
+      },
+      role,
+      isOrganizer,
+      isJudge,
+      team,
+      qualification,
+      permissions
+    };
   });
 
   // Библиотека доступных параметров голосования (для фронтенда / конструктора джема)

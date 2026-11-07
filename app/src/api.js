@@ -79,6 +79,10 @@ class ApiClient {
     return this.request('/jams/current');
   }
 
+  async getJamSession(jamSlug = 'current') {
+    return this.request(`/jams/${jamSlug}/session`);
+  }
+
   async getJamCriteriaPresets() {
     return this.request('/jams/criteria/presets');
   }
