@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { resolveJam } from '../../lib/jamResolver.js';
 import { prisma } from '../../lib/prisma.js';
+import { sanitizePlainText } from '../../lib/sanitizer.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
 const createTeamSchema = z.object({
@@ -91,9 +92,10 @@ export const teamRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'BadRequest', message: 'Вы уже состоите в команде этого джема' });
     }
 
-    const name = (parse.data.name || parse.data.team)!.trim();
-    const direction = parse.data.direction || parse.data.dir || 'Общее';
-    const { tagline, isOpen, role } = parse.data;
+    const name = sanitizePlainText((parse.data.name || parse.data.team)!);
+    const direction = sanitizePlainText(parse.data.direction || parse.data.dir || 'Общее');
+    const tagline = parse.data.tagline ? sanitizePlainText(parse.data.tagline) : undefined;
+    const { isOpen, role } = parse.data;
 
     const team = await prisma.team.create({
       data: {
@@ -141,6 +143,21 @@ export const teamRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!team) return reply.status(404).send({ error: 'NotFound', message: 'Команда не найдена' });
 
+    // ЗАЩИТА: Пользователь не может состоять в двух командах одного и того же джема
+    const alreadyInJam = await prisma.teamMember.findFirst({
+      where: {
+        userId,
+        team: { jamId: team.jamId }
+      }
+    });
+
+    if (alreadyInJam) {
+      return reply.status(400).send({
+        error: 'BadRequest',
+        message: 'Вы уже состоите в команде этого джема. 1 участник = 1 команда.'
+      });
+    }
+
     if (team.members.length >= team.jam.maxTeamSize) {
       return reply.status(400).send({ error: 'BadRequest', message: 'Команда уже укомплектована' });
     }
@@ -166,5 +183,69 @@ export const teamRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return reply.status(201).send(member);
+  });
+
+  // Покинуть команду (Leave team)
+  fastify.post('/teams/:id/leave', { preHandler: requireAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = request.user!.id;
+
+    const team = await prisma.team.findUnique({
+      where: { id },
+      include: { members: true }
+    });
+
+    if (!team) return reply.status(404).send({ error: 'NotFound', message: 'Команда не найдена' });
+
+    const membership = team.members.find((m) => m.userId === userId);
+    if (!membership) {
+      return reply.status(400).send({ error: 'BadRequest', message: 'Вы не состоите в этой команде' });
+    }
+
+    // Капитан не может просто уйти, если в команде есть другие участники
+    if (team.leaderId === userId && team.members.length > 1) {
+      return reply.status(400).send({
+        error: 'BadRequest',
+        message: 'Капитан не может покинуть команду, пока в ней есть участники. Передайте лидерство или распустите команду.'
+      });
+    }
+
+    if (team.members.length === 1) {
+      // Последний участник -> распускаем команду
+      await prisma.team.delete({ where: { id } });
+      return { message: 'Команда распущена' };
+    }
+
+    await prisma.teamMember.delete({ where: { id: membership.id } });
+    return { message: 'Вы успешно покинули команду' };
+  });
+
+  // Исключить участника из команды (только для капитана)
+  fastify.delete('/teams/:id/members/:memberUserId', { preHandler: requireAuth }, async (request, reply) => {
+    const { id, memberUserId } = request.params as { id: string; memberUserId: string };
+    const currentUserId = request.user!.id;
+
+    const team = await prisma.team.findUnique({ where: { id } });
+    if (!team) return reply.status(404).send({ error: 'NotFound', message: 'Команда не найдена' });
+
+    // Проверка прав: только капитан команды может исключать
+    if (team.leaderId !== currentUserId) {
+      return reply.status(403).send({ error: 'Forbidden', message: 'Только капитан команды может исключать участников' });
+    }
+
+    if (memberUserId === currentUserId) {
+      return reply.status(400).send({ error: 'BadRequest', message: 'Капитан не может исключить сам себя' });
+    }
+
+    const member = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: id, userId: memberUserId } }
+    });
+
+    if (!member) {
+      return reply.status(404).send({ error: 'NotFound', message: 'Участник не найден в этой команде' });
+    }
+
+    await prisma.teamMember.delete({ where: { id: member.id } });
+    return { message: 'Участник исключен из команды' };
   });
 };

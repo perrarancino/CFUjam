@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { resolveJam } from '../../lib/jamResolver.js';
 import { sanitizeJamTheme } from '../../lib/jamScheduler.js';
 import { prisma } from '../../lib/prisma.js';
+import { sanitizePlainText, sanitizeRichText } from '../../lib/sanitizer.js';
 import { optionalAuth, requireAuth } from '../../middlewares/authGuard.js';
 
 // Библиотека готовых параметров голосования (пресетов), из которых организация может выбирать
@@ -455,6 +456,51 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return { message: 'Параметры голосования успешно сохранены', count: updated.length, criteria: updated };
+  });
+
+  // Обновить настройки джема (только для организатора / администратора)
+  fastify.patch('/:slug', { preHandler: requireAuth }, async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const jam = await resolveJam(slug, request);
+    if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
+
+    const userId = request.user!.id;
+    const isPlatformAdmin = request.user!.role === 'ADMIN';
+    const isJamCreator = jam.organizerId === userId;
+    let isOrgAdmin = false;
+    if (jam.organizationId) {
+      const orgMem = await prisma.orgMember.findUnique({
+        where: { userId_organizationId: { userId, organizationId: jam.organizationId } }
+      });
+      isOrgAdmin = orgMem?.role === 'OWNER' || orgMem?.role === 'ADMIN';
+    }
+
+    if (!isPlatformAdmin && !isJamCreator && !isOrgAdmin) {
+      return reply.status(403).send({ error: 'Forbidden', message: 'Недостаточно прав для управления джемом' });
+    }
+
+    const body = request.body as any;
+    const updateData: any = {};
+
+    if (body.title) updateData.title = sanitizePlainText(body.title);
+    if (body.tagline) updateData.tagline = sanitizePlainText(body.tagline);
+    if (body.description) updateData.description = sanitizeRichText(body.description);
+    if (body.rules) updateData.rules = sanitizeRichText(body.rules);
+    if (body.theme) updateData.theme = sanitizePlainText(body.theme);
+    if (body.coverUrl) updateData.coverUrl = body.coverUrl;
+    if (body.bannerUrl) updateData.bannerUrl = body.bannerUrl;
+    if (body.gracePeriodMinutes !== undefined) updateData.gracePeriodMinutes = Number(body.gracePeriodMinutes);
+    if (body.votingType) updateData.votingType = body.votingType;
+    if (body.jamStartsAt) updateData.jamStartsAt = new Date(body.jamStartsAt);
+    if (body.submissionEndsAt) updateData.submissionEndsAt = new Date(body.submissionEndsAt);
+    if (body.votingEndsAt) updateData.votingEndsAt = new Date(body.votingEndsAt);
+
+    const updated = await prisma.jam.update({
+      where: { id: jam.id },
+      data: updateData
+    });
+
+    return sanitizeJamTheme(updated);
   });
 
   // Участники джема (вкладка «Люди» / «Участники»)

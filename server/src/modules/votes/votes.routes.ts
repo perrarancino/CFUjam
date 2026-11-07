@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { resolveJam } from '../../lib/jamResolver.js';
 import { prisma } from '../../lib/prisma.js';
 import { RatingEngine } from '../../lib/ratingEngine.js';
+import { sanitizePlainText } from '../../lib/sanitizer.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
 const voteSchema = z.object({
@@ -18,8 +19,11 @@ const voteSchema = z.object({
 export const MIN_VOTES_TO_QUALIFY = 10;
 
 export const voteRoutes: FastifyPluginAsync = async (fastify) => {
-  // 1. Проголосовать за игру (с проверкой на судью и антифродом)
-  fastify.post('/submissions/:id/vote', { preHandler: requireAuth }, async (request, reply) => {
+  // 1. Проголосовать за игру (Rate Limit: 30 оценок/мин, защита от накруток ботами)
+  fastify.post('/submissions/:id/vote', {
+    preHandler: requireAuth,
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
     const { id: submissionId } = request.params as { id: string };
     const parse = voteSchema.safeParse(request.body);
     if (!parse.success) {
@@ -64,7 +68,8 @@ export const voteRoutes: FastifyPluginAsync = async (fastify) => {
     });
     const isJudge = !!judgeRecord;
 
-    const { criteriaScores, feedback } = parse.data;
+    const { criteriaScores } = parse.data;
+    const cleanFeedback = parse.data.feedback ? sanitizePlainText(parse.data.feedback) : null;
 
     // Сохраняем оценки в транзакции
     await prisma.$transaction(
@@ -82,12 +87,12 @@ export const voteRoutes: FastifyPluginAsync = async (fastify) => {
             criteriaId: c.criteriaId,
             userId,
             score: c.score,
-            feedback,
+            feedback: cleanFeedback,
             isJudge
           },
           update: {
             score: c.score,
-            feedback,
+            feedback: cleanFeedback,
             isJudge
           }
         })

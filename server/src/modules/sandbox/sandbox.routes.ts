@@ -52,6 +52,7 @@ export const sandboxRoutes: FastifyPluginAsync = async (fastify) => {
 
     // КРИТИЧЕСКИЕ ЗАГОЛОВКИ БЕЗОПАСНОСТИ И ПОДДЕРЖКИ WASM / GODOT / UNITY MULTITHREADING
     reply.header('Content-Type', contentType);
+    reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Cross-Origin-Opener-Policy', 'same-origin');
     reply.header('Cross-Origin-Embedder-Policy', 'require-corp');
 

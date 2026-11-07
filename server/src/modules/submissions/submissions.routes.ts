@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { resolveJam } from '../../lib/jamResolver.js';
 import { prisma } from '../../lib/prisma.js';
+import { sanitizePlainText, sanitizeRichText } from '../../lib/sanitizer.js';
 import { optionalAuth, requireAuth } from '../../middlewares/authGuard.js';
 
 const submitGameSchema = z.object({
@@ -132,7 +133,11 @@ export const submissionRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(403).send({ error: 'Forbidden', message: 'Только лидер команды может публиковать игру' });
     }
 
-    const data = parse.data;
+    const title = sanitizePlainText(data.title);
+    const slug_clean = data.slug.toLowerCase().trim();
+    const tagline = data.tagline ? sanitizePlainText(data.tagline) : undefined;
+    const description = sanitizeRichText(data.description);
+    const engine = data.engine ? sanitizePlainText(data.engine) : undefined;
 
     // Создаем или обновляем сабмишен
     const submission = await prisma.submission.upsert({
@@ -140,22 +145,22 @@ export const submissionRoutes: FastifyPluginAsync = async (fastify) => {
       create: {
         jamId: jam.id,
         teamId: team.id,
-        title: data.title,
-        slug: data.slug,
-        tagline: data.tagline,
-        description: data.description,
-        engine: data.engine,
+        title,
+        slug: slug_clean,
+        tagline,
+        description,
+        engine,
         coverUrl: data.coverUrl,
         screenshots: data.screenshots || [],
         webPlayableUrl: data.webPlayableUrl || null,
         isLate
       },
       update: {
-        title: data.title,
-        slug: data.slug,
-        tagline: data.tagline,
-        description: data.description,
-        engine: data.engine,
+        title,
+        slug: slug_clean,
+        tagline,
+        description,
+        engine,
         coverUrl: data.coverUrl,
         screenshots: data.screenshots || [],
         webPlayableUrl: data.webPlayableUrl || null,

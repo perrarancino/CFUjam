@@ -2,15 +2,21 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { comparePassword, hashPassword } from '../../lib/auth.js';
 import { prisma } from '../../lib/prisma.js';
+import { sanitizePlainText } from '../../lib/sanitizer.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
+// Строгая проверка сложности пароля (минимум 8 символов, буквы + цифры)
+const passwordValidator = z.string()
+  .min(8, 'Пароль должен быть не менее 8 символов')
+  .regex(/^(?=.*[A-Za-z])(?=.*\d)/, 'Пароль должен содержать хотя бы одну букву и одну цифру');
+
 const registerSchema = z.object({
-  email: z.string().email('Некорректный email'),
-  username: z.string().min(3).max(30).optional(),
+  email: z.string().email('Некорректный email').toLowerCase().trim(),
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Никнейм может содержать только латиницу, цифры и _').optional(),
   nick: z.string().min(3).max(30).optional(), // поддержка фронтенда
-  password: z.string().min(6, 'Пароль минимум 6 символов').optional(),
-  pass: z.string().min(6, 'Пароль минимум 6 символов').optional(), // поддержка фронтенда
-  displayName: z.string().optional()
+  password: passwordValidator.optional(),
+  pass: passwordValidator.optional(), // поддержка фронтенда
+  displayName: z.string().max(50).optional()
 }).refine((data) => data.username || data.nick, {
   message: 'Необходимо указать username или nick',
   path: ['username']
@@ -20,25 +26,26 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  login: z.string().min(1, 'Введите email или никнейм'),
+  login: z.string().min(1, 'Введите email или никнейм').trim(),
   password: z.string().min(1, 'Введите пароль').optional(),
-  pass: z.string().min(1, 'Введите пароль').optional() // поддержка фронтенда
+  pass: z.string().min(1, 'Введите пароль').optional()
 }).refine((data) => data.password || data.pass, {
   message: 'Необходимо указать пароль',
   path: ['password']
 });
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
-  // Регистрация
-  fastify.post('/register', async (request, reply) => {
+  // Регистрация (Строгий Rate Limit: максимум 3 попытки в минуту на IP для защиты от ботов)
+  fastify.post('/register', { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parse = registerSchema.safeParse(request.body);
     if (!parse.success) {
       return reply.status(400).send({ error: 'ValidationError', details: parse.error.format() });
     }
 
-    const username = (parse.data.username || parse.data.nick)!.toLowerCase();
+    const username = sanitizePlainText((parse.data.username || parse.data.nick)!.toLowerCase());
     const password = (parse.data.password || parse.data.pass)!;
-    const { email, displayName } = parse.data;
+    const { email } = parse.data;
+    const displayName = parse.data.displayName ? sanitizePlainText(parse.data.displayName) : username;
 
     const existing = await prisma.user.findFirst({
       where: {
@@ -55,8 +62,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
-        username: username.toLowerCase(),
-        displayName: displayName || username,
+        username: username,
+        displayName: displayName,
         passwordHash,
         xp: 10,
         level: 1
@@ -84,8 +91,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send({ user, token });
   });
 
-  // Вход
-  fastify.post('/login', async (request, reply) => {
+  // Вход (Строгий Rate Limit: максимум 5 попыток в минуту на IP для защиты от подбора паролей)
+  fastify.post('/login', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parse = loginSchema.safeParse(request.body);
     if (!parse.success) {
       return reply.status(400).send({ error: 'ValidationError', details: parse.error.format() });
