@@ -88,8 +88,11 @@ class ApiClient {
   }
 
   // --- Команды ---
-  async getTeams(jamSlug = 'current', search) {
-    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+  async getTeams(jamSlug = 'current', search, openOnly = false) {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (openOnly) params.set('openOnly', 'true');
+    const q = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/jams/${jamSlug}/teams${q}`);
   }
 
@@ -104,6 +107,21 @@ class ApiClient {
     return this.request(`/teams/${teamId}/join`, {
       method: 'POST',
       body: JSON.stringify({ inviteCode })
+    });
+  }
+
+  async leaveTeam(teamId) {
+    return this.request(`/teams/${teamId}/leave`, { method: 'POST' });
+  }
+
+  async kickTeamMember(teamId, userId) {
+    return this.request(`/teams/${teamId}/members/${userId}`, { method: 'DELETE' });
+  }
+
+  async updateTeamRecruitment(teamId, recruitmentData) {
+    return this.request(`/teams/${teamId}/recruitment`, {
+      method: 'PATCH',
+      body: JSON.stringify(recruitmentData)
     });
   }
 
@@ -136,10 +154,81 @@ class ApiClient {
     return this.request(`/jams/${jamSlug}/leaderboard`);
   }
 
+  // --- Биржа тимейтов (LFG) и инвайты ---
+  async sendInvite(teamId, targetUsername, role = 'OTHER', message = '') {
+    return this.request(`/teams/${teamId}/invites`, {
+      method: 'POST',
+      body: JSON.stringify({ targetUsername, role, message })
+    });
+  }
+
+  async applyToTeam(teamId, role = 'OTHER', message = '') {
+    return this.request(`/teams/${teamId}/apply`, {
+      method: 'POST',
+      body: JSON.stringify({ role, message })
+    });
+  }
+
+  async getMyInvites() {
+    return this.request('/me/invites');
+  }
+
+  async respondInvite(inviteId, accept = true) {
+    return this.request(`/invites/${inviteId}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ accept })
+    });
+  }
+
+  async getLfgCandidates(jamSlug = 'current', { role, search } = {}) {
+    const params = new URLSearchParams();
+    if (role) params.set('role', role);
+    if (search) params.set('search', search);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/jams/${jamSlug}/lfg${q}`);
+  }
+
+  async getJamVacancies(jamSlug = 'current', search) {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    return this.request(`/jams/${jamSlug}/vacancies${q}`);
+  }
+
+  async updateMyLfgProfile({ bio, skills }) {
+    return this.request('/me/lfg', {
+      method: 'PUT',
+      body: JSON.stringify({ bio, skills })
+    });
+  }
+
+  // --- Дневники разработки (Devlogs) ---
+  async getDevlogs(jamSlug = 'current', teamId) {
+    const q = teamId ? `?teamId=${encodeURIComponent(teamId)}` : '';
+    return this.request(`/jams/${jamSlug}/devlogs${q}`);
+  }
+
+  async createDevlog(jamSlug = 'current', { title, content, images = [] }) {
+    return this.request(`/jams/${jamSlug}/devlogs`, {
+      method: 'POST',
+      body: JSON.stringify({ title, content, images })
+    });
+  }
+
+  async likeDevlog(postId) {
+    return this.request(`/devlogs/${postId}/like`, { method: 'POST' });
+  }
+
+  async deleteDevlog(postId) {
+    return this.request(`/devlogs/${postId}`, { method: 'DELETE' });
+  }
+
   // --- Live SSE поток ---
   connectLiveStream(jamSlug = 'current', onEvent) {
     const sse = new EventSource(`${API_BASE}/jams/${jamSlug}/live`);
     sse.addEventListener('PHASE_CHANGED', (e) => onEvent('PHASE_CHANGED', JSON.parse(e.data)));
+    sse.addEventListener('NEW_DEVLOG', (e) => onEvent('NEW_DEVLOG', JSON.parse(e.data)));
+    sse.addEventListener('NEW_INVITE', (e) => onEvent('NEW_INVITE', JSON.parse(e.data)));
+    sse.addEventListener('NEW_APPLICATION', (e) => onEvent('NEW_APPLICATION', JSON.parse(e.data)));
+    sse.addEventListener('INVITE_ACCEPTED', (e) => onEvent('INVITE_ACCEPTED', JSON.parse(e.data)));
     sse.addEventListener('ping', (e) => onEvent('ping', JSON.parse(e.data)));
     sse.onerror = (err) => console.warn('SSE connection error:', err);
     return () => sse.close();

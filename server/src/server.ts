@@ -11,12 +11,14 @@ import { initJamLifecycleScheduler } from './lib/jamScheduler.js';
 import { prisma } from './lib/prisma.js';
 import { detectTenant } from './middlewares/tenantGuard.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
+import { devlogRoutes } from './modules/devlogs/devlogs.routes.js';
 import { jamRoutes } from './modules/jams/jams.routes.js';
 import { organizationRoutes } from './modules/organizations/organizations.routes.js';
 import { realtimeRoutes } from './modules/realtime/realtime.routes.js';
 import { sandboxRoutes } from './modules/sandbox/sandbox.routes.js';
 import { fileRoutes } from './modules/submissions/files.routes.js';
 import { submissionRoutes } from './modules/submissions/submissions.routes.js';
+import { inviteRoutes } from './modules/teams/invites.routes.js';
 import { teamRoutes } from './modules/teams/teams.routes.js';
 import { voteRoutes } from './modules/votes/votes.routes.js';
 
@@ -145,6 +147,8 @@ export async function buildApp() {
   await app.register(organizationRoutes, { prefix: '/api/organizations' });
   await app.register(jamRoutes, { prefix: '/api/jams' });
   await app.register(teamRoutes, { prefix: '/api' });
+  await app.register(inviteRoutes, { prefix: '/api' });
+  await app.register(devlogRoutes, { prefix: '/api' });
   await app.register(submissionRoutes, { prefix: '/api' });
   await app.register(fileRoutes, { prefix: '/api' });
   await app.register(voteRoutes, { prefix: '/api' });

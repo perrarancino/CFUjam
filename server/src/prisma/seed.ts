@@ -21,7 +21,56 @@ async function main() {
     }
   });
 
-  // 2. Создание организации Вуза (КФУ)
+  // 2. Создание демо-участников для биржи тимейтов
+  const user1 = await prisma.user.upsert({
+    where: { email: 'alina@cfuv.ru' },
+    update: {},
+    create: {
+      email: 'alina@cfuv.ru',
+      username: 'alina_k',
+      displayName: 'Алина Кравец',
+      passwordHash,
+      role: 'USER',
+      bio: 'Геймдизайнер и художник. Люблю нарративные пазлы и сочные пиксельные анимации.',
+      skills: ['Геймдизайн', 'Aseprite', 'Pixel Art', 'Godot 4'],
+      xp: 2480,
+      level: 12
+    }
+  });
+
+  const user2 = await prisma.user.upsert({
+    where: { email: 'danil@cfuv.ru' },
+    update: {},
+    create: {
+      email: 'danil@cfuv.ru',
+      username: 'danil_m',
+      displayName: 'Данил Морозов',
+      passwordHash,
+      role: 'USER',
+      bio: 'Программист геймплея на Godot / C#. Могу быстро собрать прототип любой механики.',
+      skills: ['Godot 4', 'C#', 'Шейдеры', 'Физика 2D'],
+      xp: 1840,
+      level: 9
+    }
+  });
+
+  const user3 = await prisma.user.upsert({
+    where: { email: 'artem@cfuv.ru' },
+    update: {},
+    create: {
+      email: 'artem@cfuv.ru',
+      username: 'artem_r',
+      displayName: 'Артём Романов',
+      passwordHash,
+      role: 'USER',
+      bio: 'Unity 3D разработчик, обожаю хорроры и атмосферные визуальные эффекты.',
+      skills: ['Unity', 'C#', '3D Graphics', 'Blender'],
+      xp: 1200,
+      level: 7
+    }
+  });
+
+  // 3. Создание организации Вуза (КФУ)
   const cfuOrg = await prisma.organization.upsert({
     where: { slug: 'cfu' },
     update: {},
@@ -41,8 +90,7 @@ async function main() {
     }
   });
 
-  // 3. Создание джемов КФУ (демонстрация равноправия джемов)
-  // Джем 1 (Текущий активный)
+  // 4. Создание активного джема КФУ
   const jam1 = await prisma.jam.upsert({
     where: { slug: 'cfu-game-jam-2026' },
     update: {},
@@ -76,27 +124,67 @@ async function main() {
     }
   });
 
-  // Джем 2 (Архивный / Прошедший джем)
-  const jam2 = await prisma.jam.upsert({
-    where: { slug: 'cfu-pixel-jam-2025' },
+  // 5. Создание команд для джема и открытых вакансий
+  const team1 = await prisma.team.upsert({
+    where: { jamId_name: { jamId: jam1.id, name: 'Лунный садовник' } },
     update: {},
     create: {
-      slug: 'cfu-pixel-jam-2025',
-      title: 'CFU Pixel Jam 2025',
-      tagline: 'Ретро-джем: 48 часов в пиксельной стилистике',
-      description: 'Первый студенческий пиксельный геймджем КФУ. 48 часов чистого творчества.',
-      theme: 'Ностальгия',
-      organizationId: cfuOrg.id,
-      organizerId: adminUser.id,
-      status: 'FINISHED',
-      votingType: 'PUBLIC',
-      minTeamSize: 1,
-      maxTeamSize: 4,
-      regStartsAt: new Date('2025-10-01T00:00:00Z'),
-      jamStartsAt: new Date('2025-10-10T18:00:00Z'),
-      submissionEndsAt: new Date('2025-10-12T18:00:00Z'),
-      votingEndsAt: new Date('2025-10-18T23:59:59Z')
+      jamId: jam1.id,
+      name: 'Лунный садовник',
+      direction: '2D Pixel Art Пазл',
+      tagline: 'Ищем саунд-дизайнера и композитора для эмбиент-саундтрека ночного сада.',
+      isOpen: true,
+      leaderId: user1.id,
+      members: {
+        create: [
+          { userId: user1.id, role: 'GAME_DESIGNER' },
+          { userId: user2.id, role: 'PROGRAMMER' }
+        ]
+      }
     }
+  });
+
+  const team2 = await prisma.team.upsert({
+    where: { jamId_name: { jamId: jam1.id, name: 'Тихий берег' } },
+    update: {},
+    create: {
+      jamId: jam1.id,
+      name: 'Тихий берег',
+      direction: '3D Хоррор в Unity',
+      tagline: 'Ищем 3D левел-дизайнера для проработки локации заброшенного маяка.',
+      isOpen: true,
+      leaderId: user3.id,
+      members: {
+        create: [
+          { userId: user3.id, role: 'LEADER' }
+        ]
+      }
+    }
+  });
+
+  // 6. Создание постов в дневники разработки (Devlogs)
+  await prisma.devlogPost.createMany({
+    data: [
+      {
+        jamId: jam1.id,
+        teamId: team1.id,
+        authorId: user1.id,
+        title: 'День 1: Готова базовая механика полива и цикл день/ночь',
+        content: 'Привет всем джемерам! Первые 24 часа позади. Мы перенесли проект на Godot 4.3, настроили тайловую карту сада в ночном Крыму и написали шейдер мягкого лунного света. Данил уже запрограммировал систему роста побегов, а Софья нарисовала потрясающие спрайты ночных цветов. Завтра беремся за звуковые эмбиенты!',
+        images: ['img/generated/moon-garden-user.png'],
+        likesCount: 19
+      },
+      {
+        jamId: jam1.id,
+        teamId: team2.id,
+        authorId: user3.id,
+        title: '3D маяк в Unity: настроили volumetric fog и звук шагов',
+        content: 'Всем привет! Наш хоррор-прототип оживает. Собрали сцену скалистого берега с маяком. Самое сложное было оптимизировать объемный туман под WebGL сборку, чтобы игра летала прямо в браузере со стабильными 60 FPS. Скоро выложим первый тестовый билд!',
+        images: ['img/generated/quiet-shore.png'],
+        likesCount: 14
+      }
+    ],
+    skipDuplicates: true
   });
 
   // Закрепляем Jam 1 как featured для КФУ
@@ -113,8 +201,9 @@ async function main() {
 
   console.log(`✅ База данных успешно инициализирована!`);
   console.log(`   - Вуз: ${cfuOrg.name} (поддомен: cfu.morejam.ru)`);
-  console.log(`   - Джем #1 (Активный): ${jam1.title} (slug: ${jam1.slug})`);
-  console.log(`   - Джем #2 (Архив): ${jam2.title} (slug: ${jam2.slug})`);
+  console.log(`   - Джем: ${jam1.title} (slug: ${jam1.slug})`);
+  console.log(`   - Созданы команды с открытыми вакансиями: «${team1.name}», «${team2.name}»`);
+  console.log(`   - Создана стартовая лента дневников разработки (Devlogs)`);
   console.log(`   - Админ: jam@cfuv.ru / cfu_secret_2026`);
 }
 

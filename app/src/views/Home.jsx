@@ -83,15 +83,16 @@ export default function Home({ user, onRegister }) {
 
       <div className="bigs">
         <Big cls="full" go="teams" img="w01" label="Команды" title="Собери команду мечты" btn="Открыть команды" text="Участвуй самостоятельно или собери команду до 5 человек: программисты, художники, звук и геймдизайн." />
+        <Big go="devlogs" img="w04" label="Дневники" title="Дневники разработки" btn="Читать ленту" text="Следи за прогрессом команд: концепты, шейдеры, первый звук и билды." />
+        <Big go="people" img="w03" label="Биржа" title="Поиск тимейтов (LFG)" btn="Найти команду" text="Опубликуй анкету или позови недостающего специалиста в состав." />
         <Big go="games" img="w02" label="Игры" title="Играй и голосуй" btn="В галерею" text="Работы участников в одном месте." />
-        <Big go="people" img="w03" label="Участники" title="Смотри рейтинг" btn="К участникам" text="Лучшие и их профили." />
       </div>
 
       <div className="card news">
         <h3><Icon n="bell" />Новости джема</h3>
         <div className="stack-v" style={{ gap: 10 }}>
-          <div className="alert info"><span className="aic"><Icon n="info" /></span><div><b>Сроки уточняются.</b> Джем планируется на период с ноября 2026 по февраль 2027 года.</div></div>
-          <div className="alert ok"><span className="aic"><Icon n="circle-check" /></span><div><b>Тема секретная.</b> Её объявят на старте джема.</div></div>
+          <div className="alert info"><span className="aic"><Icon n="book-open" /></span><div><b>Лента дневников активна.</b> Публикуйте прогресс вашей команды, прикрепляйте скриншоты и получайте очки опыта (XP).</div></div>
+          <div className="alert ok"><span className="aic"><Icon n="users" /></span><div><b>Биржа тимейтов открыта.</b> Капитаны могут публиковать вакансии, а соло-участники — находить команду по специализации.</div></div>
           <div className="alert warn"><span className="aic"><Icon n="triangle-alert" /></span><div><b>Смешанный формат.</b> Разработка онлайн или в аудитории, финал — очно в КФУ.</div></div>
         </div>
       </div>

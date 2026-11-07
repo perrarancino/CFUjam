@@ -108,11 +108,21 @@ export function AppProvider({ children }) {
             d.isOnline = true;
           });
 
-          // Подключаем живой SSE поток событий джема
+          // Подключаем живой SSE поток событий джема и уведомлений
           cleanupSse = api.connectLiveStream(currentJam.slug || 'current', (event, data) => {
             if (event === 'PHASE_CHANGED') {
               toast(`Статус джема изменился: ${data.status}`, 'info');
               update((d) => { if (d.jam) d.jam.status = data.status; });
+            } else if (event === 'NEW_DEVLOG') {
+              toast(`Новая запись в дневнике: «${data.title}» (${data.teamName})`, 'info');
+            } else if (event === 'NEW_INVITE') {
+              toast(`Вам пришло приглашение в команду «${data.teamName}»!`, 'ok');
+              update((d) => { d.reqs = (d.reqs || 0) + 1; });
+            } else if (event === 'NEW_APPLICATION') {
+              toast(`Новая заявка в команду: ${data.applicantName} (${data.role})`, 'ok');
+              update((d) => { d.reqs = (d.reqs || 0) + 1; });
+            } else if (event === 'INVITE_ACCEPTED') {
+              toast(`${data.joinedUser} вступил(а) в команду «${data.teamName}»!`, 'ok');
             }
           });
         }
@@ -121,7 +131,6 @@ export function AppProvider({ children }) {
         const liveGames = await api.getSubmissions('current').catch(() => null);
         if (Array.isArray(liveGames) && liveGames.length > 0) {
           update((d) => {
-            // Обогащаем список игр реальными данными с сервера
             const existingIds = new Set(d.games.map((g) => g.id));
             for (const lg of liveGames) {
               if (!existingIds.has(lg.id)) {

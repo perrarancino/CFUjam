@@ -74,6 +74,10 @@ model User {
   teamsLed       Team[]          @relation("TeamLeader")
   teamMemberships TeamMember[]
   refreshTokens  RefreshToken[]
+  receivedInvites TeamInvite[]   @relation("UserReceivedInvites")
+  sentInvites     TeamInvite[]   @relation("UserSentInvites")
+  devlogs         DevlogPost[]   @relation("DevlogAuthor")
+  devlogLikes     DevlogLike[]   @relation("DevlogUserLikes")
   votes          Vote[]
   likes          SubmissionLike[]
 
@@ -172,6 +176,7 @@ model Jam {
   teams          Team[]
   submissions    Submission[]
   criteria       JamCriteria[]
+  devlogs        DevlogPost[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -222,6 +227,8 @@ model Team {
   jam        Jam          @relation(fields: [jamId], references: [id], onDelete: Cascade)
   leader     User         @relation("TeamLeader", fields: [leaderId], references: [id])
   members    TeamMember[]
+  invites    TeamInvite[]
+  devlogs    DevlogPost[]
   submission Submission?
 
   createdAt  DateTime     @default(now())
@@ -329,4 +336,73 @@ model SubmissionLike {
 
   @@unique([submissionId, userId])
   @@map("submission_likes")
+}
+
+// ---------------- БИРЖА ТИМЕЙТОВ (LFG & ИНВАЙТЫ) ----------------
+enum InviteType {
+  INVITE_TO_USER     // Капитан приглашает участника в команду
+  REQUEST_FROM_USER  // Участник просится в команду
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELED
+}
+
+model TeamInvite {
+  id        String       @id @default(uuid())
+  teamId    String
+  userId    String       // Получатель инвайта или кандидат
+  fromId    String       // Инициатор
+  type      InviteType   @default(INVITE_TO_USER)
+  status    InviteStatus @default(PENDING)
+  message   String?
+  role      TeamRole     @default(OTHER)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation("UserReceivedInvites", fields: [userId], references: [id], onDelete: Cascade)
+  from User @relation("UserSentInvites", fields: [fromId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([teamId, status])
+  @@map("team_invites")
+}
+
+// ---------------- ДНЕВНИКИ РАЗРАБОТКИ (DEVLOGS) ----------------
+model DevlogPost {
+  id         String       @id @default(uuid())
+  jamId      String
+  teamId     String
+  authorId   String
+  title      String
+  content    String       // Markdown / Текст обновления
+  images     String[]     @default([])
+  likesCount Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  jam    Jam          @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  team   Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author User         @relation("DevlogAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  likes  DevlogLike[]
+
+  @@index([jamId, createdAt])
+  @@map("devlog_posts")
+}
+
+model DevlogLike {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post DevlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User       @relation("DevlogUserLikes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("devlog_likes")
 }

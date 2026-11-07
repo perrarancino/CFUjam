@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { Avatar, Check, Field, Icon, Modal } from './components.jsx';
 import { CHK, hash, userRec } from './lib.js';
@@ -203,9 +203,32 @@ export function MessagesModal({ onClose }) {
   );
 }
 
+/* ---------- заявки в команду (LFG & Инвайты) ---------- */
 const REQ = ['Артём Р', 'Мария Л', 'Игорь Т', 'Елена П'];
 export function RequestsModal({ onClose }) {
   const { S, update, toast, gainXp } = useApp();
+  const [liveInvites, setLiveInvites] = useState([]);
+
+  useEffect(() => {
+    if (S.isOnline) {
+      api.getMyInvites().then((res) => {
+        const all = [...(res.receivedInvites || []), ...(res.teamRequests || [])];
+        setLiveInvites(all);
+      }).catch(() => {});
+    }
+  }, [S.isOnline]);
+
+  const respondLive = async (inviteId, accept) => {
+    try {
+      await api.respondInvite(inviteId, accept);
+      setLiveInvites((prev) => prev.filter((x) => x.id !== inviteId));
+      toast(accept ? 'Заявка принята!' : 'Заявка отклонена', 'ok');
+      if (accept) gainXp(15);
+    } catch (e) {
+      toast(e.message || 'Ошибка обработки заявки', 'warn');
+    }
+  };
+
   const n = Math.min(4, S.reqs);
   const rows = Array.from({ length: n }, (_, i) => REQ[(S.reqIdx + i) % 4]);
   const no = () => { update((d) => { d.reqs--; d.reqIdx++; }); toast('Заявка отклонена'); };
@@ -216,9 +239,29 @@ export function RequestsModal({ onClose }) {
     update((d) => { const tt = d.teams[d.user]; if (!tt.members.includes(nm)) tt.members.push(nm); d.reqs--; d.reqIdx++; });
     toast(nm + ' в вашей команде', 'ok'); gainXp(5);
   };
+
   return (
     <Modal title="Заявки в команду" onClose={onClose}>
-      {S.reqs > 0 ? (
+      {/* 1. Если на связи с сервером и есть реальные заявки */}
+      {S.isOnline && liveInvites.length > 0 ? (
+        <>
+          {liveInvites.map((inv) => {
+            const senderName = inv.from?.displayName || inv.from?.username || inv.user?.displayName || 'Участник';
+            const subtitle = inv.team?.name ? `Приглашение в команду «${inv.team.name}»` : 'Хочет в вашу команду';
+            return (
+              <div className="msgr" key={inv.id}>
+                <Avatar name={senderName} />
+                <div><b>{senderName}</b><p>{subtitle}</p></div>
+                <div className="row">
+                  <button className="btn primary sm" type="button" aria-label="Принять" onClick={() => respondLive(inv.id, true)}><Icon n="check" /></button>
+                  <button className="btn ghost sm" type="button" aria-label="Отклонить" onClick={() => respondLive(inv.id, false)}><Icon n="x" /></button>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      ) : S.reqs > 0 ? (
+        /* 2. Демо-заявки для оффлайна */
         <>
           {rows.map((nm) => (
             <div className="msgr" key={nm}>
@@ -237,6 +280,182 @@ export function RequestsModal({ onClose }) {
   );
 }
 
+/* ---------- публикация в дневник разработки ---------- */
+export function DevlogComposeModal({ onCreated, onClose }) {
+  const { S, toast, gainXp } = useApp();
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [img, setImg] = useState('img/generated/students-work.png');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const teamName = (S.user && S.teams[S.user]?.name) || 'Команда джема';
+
+  const PRESETS = [
+    { label: 'Студенты за работой', val: 'img/generated/students-work.png' },
+    { label: 'Лунный садовник (2D)', val: 'img/generated/moon-garden-user.png' },
+    { label: 'Тихий берег (3D)', val: 'img/generated/quiet-shore.png' },
+    { label: 'Чайка и ветер', val: 'img/generated/seagull.png' },
+    { label: 'Гейминг зона', val: 'img/generated/gaming-user.png' }
+  ];
+
+  const submit = async (e, close) => {
+    e.preventDefault();
+    if (!title.trim() || title.length < 3) return setErr('Введите заголовок (от 3 символов)');
+    if (!content.trim() || content.length < 10) return setErr('Опишите прогресс подробнее (от 10 символов)');
+    setErr('');
+
+    setBusy(true);
+    const newPost = {
+      id: 'devlog-' + Date.now(),
+      title: title.trim(),
+      content: content.trim(),
+      images: img ? [img] : [],
+      likesCount: 0,
+      createdAt: new Date().toISOString(),
+      author: { username: S.user, displayName: S.user },
+      team: { name: teamName },
+      iLiked: false
+    };
+
+    if (S.isOnline) {
+      try {
+        const res = await api.createDevlog('current', {
+          title: newPost.title,
+          content: newPost.content,
+          images: newPost.images
+        });
+        if (res && res.id) newPost.id = res.id;
+      } catch (err) {
+        toast('Опубликовано локально: ' + (err.message || ''), 'warn');
+      }
+    }
+
+    setBusy(false);
+    if (onCreated) onCreated(newPost);
+    close();
+  };
+
+  return (
+    <Modal title="Новая запись в дневник" onClose={onClose}>
+      {(close) => (
+        <form noValidate className="stack-v" onSubmit={(e) => submit(e, close)}>
+          <div className="alert info">
+            <span className="aic"><Icon n="info" /></span>
+            <div>Публикация от имени команды <b>«{teamName}»</b> (+10 XP)</div>
+          </div>
+          <div className={'field' + (err.includes('заголовок') ? ' err' : '')}>
+            <label htmlFor="d_title">Заголовок записи</label>
+            <input
+              id="d_title"
+              type="text"
+              placeholder="Например: День 1: Собрали прототип на Godot 4"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div className={'field' + (err.includes('прогресс') ? ' err' : '')}>
+            <label htmlFor="d_content">Что сделано / Описание прогресса</label>
+            <textarea
+              id="d_content"
+              rows={5}
+              placeholder="Расскажите о механике, сложностях, арте, музыке или покажите первый билд..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="d_img">Скриншот или арт</label>
+            <select id="d_img" value={img} onChange={(e) => setImg(e.target.value)}>
+              {PRESETS.map((p) => <option key={p.val} value={p.val}>{p.label}</option>)}
+            </select>
+          </div>
+          {err && <small className="rerr">{err}</small>}
+          <button className="btn primary block" type="submit" disabled={busy}>
+            <Icon n="rocket" />
+            <span>{busy ? 'Публикация…' : 'Опубликовать в дневник'}</span>
+          </button>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+/* ---------- анкета участника на бирже тимейтов (LFG) ---------- */
+export function LfgProfileModal({ onClose }) {
+  const { S, update, toast, gainXp } = useApp();
+  const [role, setRole] = useState(S.role || 'Программист');
+  const [skills, setSkills] = useState('Godot 4, C#, шейдеры, UI');
+  const [bio, setBio] = useState('Ищу команду на джем! Готов писать механику геймплея и логику уровней.');
+
+  const save = async (e, close) => {
+    e.preventDefault();
+    update((d) => {
+      d.role = role;
+    });
+
+    if (S.isOnline) {
+      try {
+        await api.updateMyLfgProfile({
+          bio: bio.trim(),
+          skills: skills.split(',').map((s) => s.trim()).filter(Boolean)
+        });
+      } catch {
+        // оффлайн
+      }
+    }
+
+    toast('Анкета на бирже тимейтов сохранена!', 'ok');
+    gainXp(5);
+    close();
+  };
+
+  return (
+    <Modal title="Моя анкета на бирже тимейтов" onClose={onClose}>
+      {(close) => (
+        <form noValidate className="stack-v" onSubmit={(e) => save(e, close)}>
+          <div className="field">
+            <label htmlFor="lfg_role">Специализация</label>
+            <select id="lfg_role" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option>Программист</option>
+              <option>2D Художник / Pixel Art</option>
+              <option>3D Моделлер</option>
+              <option>Геймдизайнер</option>
+              <option>Саунд-дизайнер / Композитор</option>
+              <option>Сценарист / Нарратив</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="lfg_skills">Навыки и стек (через запятую)</label>
+            <input
+              id="lfg_skills"
+              type="text"
+              placeholder="Unity, C#, Blender, FMOD..."
+              value={skills}
+              onChange={(e) => setSkills(e.target.value)}
+            />
+            <small>По этим тегам вас смогут найти капитаны команд</small>
+          </div>
+          <div className="field">
+            <label htmlFor="lfg_bio">О себе / Кого ищете</label>
+            <textarea
+              id="lfg_bio"
+              rows={4}
+              placeholder="Расскажите о своем опыте, любимых жанрах и сколько времени готовы уделять разработке..."
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+            />
+          </div>
+          <button className="btn primary block" type="submit">
+            <Icon n="check" />
+            <span>Сохранить анкету</span>
+          </button>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
 export function Modals() {
   const { modal, closeModal } = useApp();
   if (!modal) return null;
@@ -246,5 +465,7 @@ export function Modals() {
   if (modal.type === 'write') return <WriteModal key={key} who={modal.who} onClose={closeModal} />;
   if (modal.type === 'msgs') return <MessagesModal key={key} onClose={closeModal} />;
   if (modal.type === 'reqs') return <RequestsModal key={key} onClose={closeModal} />;
+  if (modal.type === 'devlog_compose') return <DevlogComposeModal key={key} onCreated={modal.onCreated} onClose={closeModal} />;
+  if (modal.type === 'lfg_profile') return <LfgProfileModal key={key} onClose={closeModal} />;
   return null;
 }

@@ -3,13 +3,20 @@ import { Avatar, Icon, Toasts } from './components.jsx';
 import { Modals } from './modals.jsx';
 import { NavProvider, useIndicator, useNav } from './nav.jsx';
 import { AppProvider, useApp } from './store.jsx';
+import Devlogs from './views/Devlogs.jsx';
 import Games from './views/Games.jsx';
 import Home from './views/Home.jsx';
 import Me from './views/Me.jsx';
 import People from './views/People.jsx';
 import Teams from './views/Teams.jsx';
 
-const TABS = [['home', 'house', 'Главная'], ['teams', 'users', 'Команды'], ['games', 'gamepad-2', 'Игры'], ['people', 'trophy', 'Участники']];
+const TABS = [
+  ['home', 'house', 'Главная'],
+  ['devlogs', 'book-open', 'Дневники'],
+  ['teams', 'users', 'Команды'],
+  ['people', 'sparkles', 'Биржа'],
+  ['games', 'gamepad-2', 'Игры']
+];
 
 function Header() {
   const { S, openModal } = useApp();
@@ -67,9 +74,10 @@ function Shell() {
       <Header />
       <main>
         {section('home', <Home user={S.user} onRegister={() => (S.user ? show('teams') : openModal({ type: 'auth', tab: 'reg' }))} />)}
+        {section('devlogs', <Devlogs />)}
         {section('teams', <Teams />)}
-        {section('games', <Games />)}
         {section('people', <People />)}
+        {section('games', <Games />)}
         {section('me', <Me />)}
       </main>
       <Toasts />

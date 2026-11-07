@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { api } from '../api.js';
 import { Avatar, Banner, Field, Icon, Range } from '../components.jsx';
 import { hue, CHK, userRec } from '../lib.js';
 import { useNav } from '../nav.jsx';
@@ -7,11 +8,12 @@ import { useApp } from '../store.jsx';
 const DEFAULT_STACK = ['Алина К', 'Данил М', 'Софья В', 'Артём Р'];
 
 export default function Teams() {
-  const { S, update, toast, needAuth, gainXp } = useApp();
+  const { S, update, toast, needAuth, gainXp, openModal } = useApp();
   const { show } = useNav();
   const [f, setF] = useState({ team: '', mail: '', nick: '', dir: 'Программирование', size: 4 });
   const [err, setErr] = useState({});
   const [up, setUp] = useState({ v: 72, busy: false });
+  const [isOpenRecruiting, setIsOpenRecruiting] = useState(true);
   const timer = useRef(null);
 
   /* после входа подставляем почту и ник (только в пустые поля); после выхода очищаем */
@@ -36,18 +38,35 @@ export default function Teams() {
     if (team) update((d) => { const t = d.teams[d.user]; t.size = Math.max(n, t.members.length); });
   };
 
-  const create = () => {
+  const create = async () => {
     if (!S.user) return needAuth('Чтобы создать команду, войдите в аккаунт');
     if (team) return toast('У вас уже есть команда «' + team.name + '»', 'warn');
     const e = { team: CHK.team(f.team), mail: CHK.email(f.mail.trim()), nick: CHK.nick(S, f.nick.trim(), S.user) };
     setErr(e);
     if (Object.values(e).some(Boolean)) return toast('Проверьте поля формы', 'err');
     const name = f.team.trim();
+
+    let createdTeamId = null;
+    if (S.isOnline) {
+      try {
+        const res = await api.createTeam('current', {
+          name,
+          dir: f.dir,
+          size: f.size
+        });
+        if (res && res.id) createdTeamId = res.id;
+      } catch (err) {
+        toast('Создано локально: ' + (err.message || ''), 'warn');
+      }
+    }
+
     update((d) => {
-      d.teams[d.user] = { name, dir: f.dir, size: f.size, members: [d.user] };
-      d.games.push({ id: 'u' + Date.now(), owner: d.user, title: name, dir: f.dir, hue: hue(name) });
+      d.teams[d.user] = { id: createdTeamId, name, dir: f.dir, size: f.size, members: [d.user] };
+      d.games.push({ id: createdTeamId || ('u' + Date.now()), owner: d.user, title: name, dir: f.dir, hue: hue(name) });
     });
-    gainXp(25); toast('Команда «' + name + '» создана', 'ok');
+
+    gainXp(25);
+    toast('Команда «' + name + '» создана', 'ok');
     setTimeout(() => show('games'), 900);
   };
 
@@ -66,11 +85,26 @@ export default function Teams() {
     }, 140);
   };
 
+  const toggleRecruitment = async () => {
+    const next = !isOpenRecruiting;
+    setIsOpenRecruiting(next);
+    toast(next ? 'Набор в команду открыт на бирже' : 'Набор закрыт', 'ok');
+
+    if (S.isOnline && team?.id) {
+      try {
+        await api.updateTeamRecruitment(team.id, { isOpen: next });
+      } catch {
+        // оффлайн
+      }
+    }
+  };
+
   const members = team ? team.members : DEFAULT_STACK;
   const total = team ? Math.max(team.size, team.members.length) : 5;
+
   return (
     <>
-      <Banner img="w04" title="Команды" text="Создай команду, следи за составом и загружай сборку." />
+      <Banner img="w04" title="Команды" text="Создай команду, управляй составом, публикуй вакансии на бирже и загружай сборку." />
       <div className="grid g2 pull">
         <div className="card" id="form-card">
           <h3><Icon n="clipboard-list" />Новая команда</h3>
@@ -96,7 +130,43 @@ export default function Teams() {
               {members.map((m) => <Avatar key={m} name={m} />)}
               {!team && <span className="av more"><i className="face">+12</i></span>}
             </div>
-            <div className="row"><span className="chip ok"><i className="pt" />{members.length} из {total} мест занято</span></div>
+            <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between', margin: '4px 0' }}>
+              <span className="chip ok"><i className="pt" />{members.length} из {total} мест занято</span>
+              {team && (
+                <button
+                  className={'btn sm ' + (isOpenRecruiting ? 'light' : 'ghost')}
+                  type="button"
+                  onClick={toggleRecruitment}
+                  title="Управление набором на бирже тимейтов"
+                >
+                  <Icon n="users" />
+                  <span>{isOpenRecruiting ? 'Набор открыт' : 'Набор закрыт'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Быстрые действия команды: Дневники и Биржа */}
+            {team && (
+              <div className="row" style={{ gap: 8, margin: '8px 0' }}>
+                <button
+                  className="btn light sm"
+                  type="button"
+                  onClick={() => openModal({ type: 'devlog_compose' })}
+                >
+                  <Icon n="book-open" />
+                  <span>В дневник</span>
+                </button>
+                <button
+                  className="btn light sm"
+                  type="button"
+                  onClick={() => show('people')}
+                >
+                  <Icon n="sparkles" />
+                  <span>Найти тимейта</span>
+                </button>
+              </div>
+            )}
+
             <div className="up">
               <div className="bar-l"><span>Загрузка сборки</span><span id="up-pct">{Math.round(up.v)}%</span></div>
               <div className="bar" id="up-bar" style={{ '--v': up.v + '%' }}><i /></div>
