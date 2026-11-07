@@ -1,0 +1,308 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ORGANIZER
+  ADMIN
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum JamStatus {
+  DRAFT              // Черновик (виден только организатору)
+  UPCOMING           // Анонсирован, открыта регистрация команд
+  RUNNING            // Джем идёт: разработка, объявлена тема
+  SUBMISSION_CLOSED  // Приём сборок завершён (дедлайн)
+  VOTING             // Идёт голосование (жюри / участники)
+  FINISHED           // Итоги подведены, победители объявлены
+}
+
+enum VotingType {
+  PUBLIC             // Открытое народное голосование (все зарегистрированные)
+  PARTICIPANTS_ONLY  // Только участники джема (механика itch.io)
+  JUDGES_ONLY        // Только назначенное жюри / эксперты
+  HYBRID             // Смешанное (приз жюри + приз зрительских симпатий)
+}
+
+enum TeamRole {
+  LEADER
+  PROGRAMMER
+  ARTIST_2D
+  ARTIST_3D
+  GAME_DESIGNER
+  SOUND_DESIGNER
+  WRITER
+  TESTER
+  OTHER
+}
+
+// ---------------- ПОЛЬЗОВАТЕЛИ ----------------
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  username     String    @unique
+  displayName  String?
+  passwordHash String
+  avatarUrl    String?
+  role         Role      @default(USER)
+  bio          String?
+  skills       String[]  @default([])
+  xp           Int       @default(0)
+  level        Int       @default(1)
+  vkId         String?   @unique
+  googleId     String?   @unique
+  telegramId   String?   @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Связи
+  orgMemberships OrgMember[]
+  jamsOrganized  Jam[]           @relation("JamOrganizer")
+  judgingJams    JamJudge[]
+  teamsLed       Team[]          @relation("TeamLeader")
+  teamMemberships TeamMember[]
+  votes          Vote[]
+  likes          SubmissionLike[]
+
+  @@map("users")
+}
+
+// ---------------- ОРГАНИЗАЦИИ (Вузы, компании, сообщества) ----------------
+model Organization {
+  id          String   @id @default(uuid())
+  slug        String   @unique // например: "cfu", "hse", "itmo", "indie-hub"
+  name        String   // "Крымский федеральный университет"
+  shortName   String?  // "КФУ им. В.И. Вернадского"
+  description String?
+  logoUrl     String?
+  website     String?
+  verified    Boolean  @default(false) // Верифицированный вуз / партнер
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members OrgMember[]
+  jams    Jam[]
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  role           OrgRole      @default(MEMBER)
+  joinedAt       DateTime     @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("org_members")
+}
+
+// ---------------- ДЖЕМЫ ----------------
+model Jam {
+  id             String       @id @default(uuid())
+  slug           String       @unique // "cfu-game-jam-2026", "winter-jam-2026"
+  title          String       // "CFU Game Jam 2026"
+  tagline        String?      // "72 часа, одна идея и море драйва"
+  description    String       // Подробный Markdown / HTML с описанием
+  rules          String?      // Правила участия
+  theme          String?      // Тема джема (открывается при старте RUNNING)
+  coverUrl       String?
+  bannerUrl      String?
+
+  status         JamStatus    @default(DRAFT)
+  votingType     VotingType   @default(HYBRID)
+
+  // Временные рамки
+  regStartsAt    DateTime     @default(now())
+  jamStartsAt    DateTime     // Старт разработки
+  submissionEndsAt DateTime   // Дедлайн приёма сборок
+  votingEndsAt   DateTime     // Окончание голосования
+
+  // Настройки команд
+  minTeamSize    Int          @default(1)
+  maxTeamSize    Int          @default(5)
+  allowSolo      Boolean      @default(true)
+
+  // Ограничения и настройки
+  isPublic       Boolean      @default(true)
+
+  // Связь с организацией и создателем
+  organizationId String?
+  organizerId    String
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizer      User          @relation("JamOrganizer", fields: [organizerId], references: [id])
+
+  judges         JamJudge[]
+  teams          Team[]
+  submissions    Submission[]
+  criteria       JamCriteria[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("jams")
+}
+
+model JamJudge {
+  id        String   @id @default(uuid())
+  jamId     String
+  userId    String
+  title     String?  // Например: "Ведущий геймдизайнер", "Преподаватель кафедры ИВТ"
+  createdAt DateTime @default(now())
+
+  jam  Jam  @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jamId, userId])
+  @@map("jam_judges")
+}
+
+// Критерии оценки (настраиваются для каждого джема)
+model JamCriteria {
+  id          String   @id @default(uuid())
+  jamId       String
+  name        String   // "Геймплей", "Графика", "Звук", "Тема"
+  description String?
+  weight      Float    @default(1.0) // Вес критерия в итоговом балле
+  order       Int      @default(0)
+
+  jam   Jam    @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  votes Vote[]
+
+  @@map("jam_criteria")
+}
+
+// ---------------- КОМАНДЫ ----------------
+model Team {
+  id         String   @id @default(uuid())
+  jamId      String
+  name       String
+  tagline    String?
+  leaderId   String
+  inviteCode String   @unique @default(uuid())
+  isOpen     Boolean  @default(true) // Ищет ли участников (LFG)
+  direction  String?  // Например: "Разработка", "Арт", "Нарратив"
+
+  jam        Jam          @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  leader     User         @relation("TeamLeader", fields: [leaderId], references: [id])
+  members    TeamMember[]
+  submission Submission?
+
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([jamId, name])
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String    @id @default(uuid())
+  teamId    String
+  userId    String
+  role      TeamRole  @default(OTHER)
+  joinedAt  DateTime  @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+// ---------------- ИГРЫ / САБМИШЕНЫ ----------------
+model Submission {
+  id             String    @id @default(uuid())
+  jamId          String
+  teamId         String    @unique // 1 команда = 1 игра в рамках джема
+  title          String
+  slug           String    // "moon-gardener"
+  tagline        String?
+  description    String    // Описание, управление, авторы
+  engine         String?   // "Unity", "Godot", "Unreal", "Custom"
+  coverUrl       String?
+  screenshots    String[]  @default([])
+  webPlayableUrl String?   // URL к index.html WebGL сборки в S3
+  isPublished    Boolean   @default(true)
+
+  jam   Jam              @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  team  Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  files SubmissionFile[]
+  votes Vote[]
+  likes SubmissionLike[]
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([jamId, slug])
+  @@map("submissions")
+}
+
+enum Platform {
+  WINDOWS
+  LINUX
+  MACOS
+  WEB
+  ANDROID
+  SOURCE_CODE
+}
+
+model SubmissionFile {
+  id           String   @id @default(uuid())
+  submissionId String
+  platform     Platform
+  fileName     String
+  fileSize     BigInt
+  fileUrl      String   // S3 URL
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("submission_files")
+}
+
+// ---------------- ОЦЕНКИ И ЛАЙКИ ----------------
+model Vote {
+  id           String   @id @default(uuid())
+  submissionId String
+  criteriaId   String
+  userId       String
+  score        Int      // 1-5 звёзд
+  feedback     String?  // Текстовый отзыв / конструктивная критика
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submission Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  criteria   JamCriteria @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, criteriaId, userId])
+  @@map("votes")
+}
+
+model SubmissionLike {
+  id           String   @id @default(uuid())
+  submissionId String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, userId])
+  @@map("submission_likes")
+}
