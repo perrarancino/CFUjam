@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { resolveJam } from '../../lib/jamResolver.js';
 import { prisma } from '../../lib/prisma.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
@@ -27,7 +28,7 @@ export const teamRoutes: FastifyPluginAsync = async (fastify) => {
     const { slug } = request.params as { slug: string };
     const { search, openOnly } = request.query as { search?: string; openOnly?: string };
 
-    const jam = await prisma.jam.findUnique({ where: { slug }, select: { id: true } });
+    const jam = await resolveJam(slug, request);
     if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
 
     const where: any = { jamId: jam.id };
@@ -69,7 +70,7 @@ export const teamRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const userId = request.user!.id;
-    const jam = await prisma.jam.findUnique({ where: { slug } });
+    const jam = await resolveJam(slug, request);
     if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
 
     // Проверяем, не состоит ли пользователь уже в команде этого джема

@@ -41,8 +41,9 @@ async function main() {
     }
   });
 
-  // 3. Создание CFU Game Jam 2026-2027
-  const jam = await prisma.jam.upsert({
+  // 3. Создание джемов КФУ (демонстрация равноправия джемов)
+  // Джем 1 (Текущий активный)
+  const jam1 = await prisma.jam.upsert({
     where: { slug: 'cfu-game-jam-2026' },
     update: {},
     create: {
@@ -73,10 +74,46 @@ async function main() {
     }
   });
 
+  // Джем 2 (Архивный / Прошедший джем)
+  const jam2 = await prisma.jam.upsert({
+    where: { slug: 'cfu-pixel-jam-2025' },
+    update: {},
+    create: {
+      slug: 'cfu-pixel-jam-2025',
+      title: 'CFU Pixel Jam 2025',
+      tagline: 'Ретро-джем: 48 часов в пиксельной стилистике',
+      description: 'Первый студенческий пиксельный геймджем КФУ. 48 часов чистого творчества.',
+      theme: 'Ностальгия',
+      organizationId: cfuOrg.id,
+      organizerId: adminUser.id,
+      status: 'FINISHED',
+      votingType: 'PUBLIC',
+      minTeamSize: 1,
+      maxTeamSize: 4,
+      regStartsAt: new Date('2025-10-01T00:00:00Z'),
+      jamStartsAt: new Date('2025-10-10T18:00:00Z'),
+      submissionEndsAt: new Date('2025-10-12T18:00:00Z'),
+      votingEndsAt: new Date('2025-10-18T23:59:59Z')
+    }
+  });
+
+  // Закрепляем Jam 1 как featured для КФУ
+  await prisma.organization.update({
+    where: { id: cfuOrg.id },
+    data: {
+      featuredJamId: jam1.id,
+      themeConfig: {
+        theme: 'sunny-pixel',
+        font: 'Handjet'
+      }
+    }
+  });
+
   console.log(`✅ База данных успешно инициализирована!`);
-  console.log(`   - Вуз: ${cfuOrg.name} (slug: ${cfuOrg.slug})`);
-  console.log(`   - Джем: ${jam.title} (slug: ${jam.slug})`);
-  console.log(`   - Админ логин: jam@cfuv.ru / cfu_secret_2026`);
+  console.log(`   - Вуз: ${cfuOrg.name} (поддомен: cfu.morejam.ru)`);
+  console.log(`   - Джем #1 (Активный): ${jam1.title} (slug: ${jam1.slug})`);
+  console.log(`   - Джем #2 (Архив): ${jam2.title} (slug: ${jam2.slug})`);
+  console.log(`   - Админ: jam@cfuv.ru / cfu_secret_2026`);
 }
 
 main()

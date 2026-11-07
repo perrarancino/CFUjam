@@ -1,6 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { env } from '../../config/env.js';
 import { prisma } from '../../lib/prisma.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
@@ -29,13 +28,21 @@ const createJamSchema = z.object({
 });
 
 export const jamRoutes: FastifyPluginAsync = async (fastify) => {
-  // Список всех джемов (с фильтрацией по статусу и организации)
+  // Список джемов:
+  // - На поддомене (cfu.morejam.ru) возвращает только джемы этой организации
+  // - На главном домене (morejam.ru) возвращает все публичные джемы платформы
   fastify.get('/', async (request) => {
-    const { status, org } = request.query as { status?: string; org?: string };
+    const { status, org: queryOrg } = request.query as { status?: string; org?: string };
 
     const where: any = { isPublic: true };
     if (status) where.status = status;
-    if (org) where.organization = { slug: org };
+
+    // Контекст поддомена (например cfu.morejam.ru)
+    if (request.org) {
+      where.organizationId = request.org.id;
+    } else if (queryOrg) {
+      where.organization = { slug: queryOrg.toLowerCase() };
+    }
 
     return prisma.jam.findMany({
       where,
@@ -51,39 +58,110 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // Текущий/дефолтный джем (для совместимости с существующим фронтендом КФУ)
+  // Текущий выбранный / активный джем (равноправие джемов: никакого захардкоженного джема!)
+  // Логика выбора:
+  // 1. Если клиент явно передал ?jam=slug -> возвращаем этот джем
+  // 2. Если организация закрепила featuredJamId -> возвращаем его
+  // 3. Иначе ищем активный джем (RUNNING) этой организации
+  // 4. Если нет RUNNING -> ищем ближайший UPCOMING или VOTING
+  // 5. Иначе -> берем самый свежий созданный джем
   fastify.get('/current', async (request, reply) => {
-    const jam = await prisma.jam.findUnique({
-      where: { slug: env.DEFAULT_JAM_SLUG },
+    const { jam: requestedSlug } = request.query as { jam?: string };
+
+    const orgId = request.org?.id;
+
+    // 1. Клиент запросил конкретный slug
+    if (requestedSlug) {
+      const jam = await prisma.jam.findFirst({
+        where: {
+          slug: requestedSlug,
+          ...(orgId ? { organizationId: orgId } : {})
+        },
+        include: {
+          organization: true,
+          criteria: { orderBy: { order: 'asc' } },
+          _count: { select: { teams: true, submissions: true } }
+        }
+      });
+      if (jam) return jam;
+    }
+
+    // 2. Закрепленный джем организации
+    if (request.org?.featuredJamId) {
+      const featured = await prisma.jam.findUnique({
+        where: { id: request.org.featuredJamId },
+        include: {
+          organization: true,
+          criteria: { orderBy: { order: 'asc' } },
+          _count: { select: { teams: true, submissions: true } }
+        }
+      });
+      if (featured) return featured;
+    }
+
+    // 3. Ищем джем в статусе RUNNING
+    const runningJam = await prisma.jam.findFirst({
+      where: {
+        status: 'RUNNING',
+        ...(orgId ? { organizationId: orgId } : { isPublic: true })
+      },
       include: {
         organization: true,
         criteria: { orderBy: { order: 'asc' } },
-        _count: {
-          select: { teams: true, submissions: true }
-        }
-      }
+        _count: { select: { teams: true, submissions: true } }
+      },
+      orderBy: { jamStartsAt: 'desc' }
+    });
+    if (runningJam) return runningJam;
+
+    // 4. Ищем джем в статусе UPCOMING или VOTING
+    const activeJam = await prisma.jam.findFirst({
+      where: {
+        status: { in: ['UPCOMING', 'VOTING'] },
+        ...(orgId ? { organizationId: orgId } : { isPublic: true })
+      },
+      include: {
+        organization: true,
+        criteria: { orderBy: { order: 'asc' } },
+        _count: { select: { teams: true, submissions: true } }
+      },
+      orderBy: { jamStartsAt: 'desc' }
+    });
+    if (activeJam) return activeJam;
+
+    // 5. Любой последний созданный джем
+    const fallbackJam = await prisma.jam.findFirst({
+      where: orgId ? { organizationId: orgId } : { isPublic: true },
+      include: {
+        organization: true,
+        criteria: { orderBy: { order: 'asc' } },
+        _count: { select: { teams: true, submissions: true } }
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!jam) {
-      // Если джем еще не создан в БД, возвращаем первый активный или 404
-      const fallback = await prisma.jam.findFirst({
-        orderBy: { createdAt: 'desc' },
-        include: { organization: true, criteria: true }
+    if (!fallbackJam) {
+      return reply.status(404).send({
+        error: 'NotFound',
+        message: request.org
+          ? `У организации «${request.org.name}» пока нет созданных джемов`
+          : 'На платформе пока нет активных джемов'
       });
-      if (!fallback) {
-        return reply.status(404).send({ error: 'NotFound', message: 'Джем по умолчанию не настроен' });
-      }
-      return fallback;
     }
 
-    return jam;
+    return fallbackJam;
   });
 
   // Получить джем по slug
   fastify.get('/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string };
-    const jam = await prisma.jam.findUnique({
-      where: { slug },
+    const orgId = request.org?.id;
+
+    const jam = await prisma.jam.findFirst({
+      where: {
+        slug,
+        ...(orgId ? { organizationId: orgId } : {})
+      },
       include: {
         organization: true,
         criteria: { orderBy: { order: 'asc' } },
@@ -107,7 +185,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
     return jam;
   });
 
-  // Создать новый джем (для организаторов / вузов)
+  // Создать новый джем
   fastify.post('/', { preHandler: requireAuth }, async (request, reply) => {
     const parse = createJamSchema.safeParse(request.body);
     if (!parse.success) {
@@ -116,6 +194,9 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
 
     const userId = request.user!.id;
     const data = parse.data;
+
+    // Если запрос пришел с поддомена вуза (cfu.morejam.ru), привязываем к этой организации
+    const targetOrgId = request.org?.id || data.organizationId || null;
 
     const existing = await prisma.jam.findUnique({ where: { slug: data.slug } });
     if (existing) {
@@ -139,7 +220,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
         theme: data.theme,
         coverUrl: data.coverUrl,
         bannerUrl: data.bannerUrl,
-        organizationId: data.organizationId,
+        organizationId: targetOrgId,
         organizerId: userId,
         votingType: data.votingType,
         minTeamSize: data.minTeamSize,
@@ -172,7 +253,6 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
     const jam = await prisma.jam.findUnique({ where: { slug }, select: { id: true } });
     if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
 
-    // Получаем всех участников команд этого джема
     const members = await prisma.teamMember.findMany({
       where: { team: { jamId: jam.id } },
       include: {

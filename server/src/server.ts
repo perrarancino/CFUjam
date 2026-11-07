@@ -5,6 +5,7 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import Fastify from 'fastify';
 import { env } from './config/env.js';
+import { detectTenant } from './middlewares/tenantGuard.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { jamRoutes } from './modules/jams/jams.routes.js';
 import { organizationRoutes } from './modules/organizations/organizations.routes.js';
@@ -78,6 +79,20 @@ export async function buildApp() {
       docExpansion: 'list',
       deepLinking: false
     }
+  });
+
+  // Автоматическое определение организации (вуза) по поддомену (cfu.morejam.ru)
+  app.addHook('onRequest', detectTenant);
+
+  // Информация о текущей организации (вузе) на поддомене
+  app.get('/api/org', async (request, reply) => {
+    if (!request.org) {
+      return reply.status(404).send({
+        error: 'NotFound',
+        message: 'Запрос выполнен с корневого домена платформы, организация не выбрана'
+      });
+    }
+    return request.org;
   });
 
   // Healthcheck

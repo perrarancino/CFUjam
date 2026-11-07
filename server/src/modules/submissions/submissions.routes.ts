@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { resolveJam } from '../../lib/jamResolver.js';
 import { prisma } from '../../lib/prisma.js';
 import { optionalAuth, requireAuth } from '../../middlewares/authGuard.js';
 
@@ -21,7 +22,7 @@ export const submissionRoutes: FastifyPluginAsync = async (fastify) => {
     const { engine, search } = request.query as { engine?: string; search?: string };
     const currentUserId = request.user?.id;
 
-    const jam = await prisma.jam.findUnique({ where: { slug }, select: { id: true } });
+    const jam = await resolveJam(slug, request);
     if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
 
     const where: any = { jamId: jam.id, isPublished: true };
@@ -112,7 +113,7 @@ export const submissionRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const userId = request.user!.id;
-    const jam = await prisma.jam.findUnique({ where: { slug } });
+    const jam = await resolveJam(slug, request);
     if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
 
     // Проверяем, что дедлайн еще не прошел (или организатор)

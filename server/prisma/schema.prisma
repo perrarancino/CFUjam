@@ -80,16 +80,19 @@ model User {
 
 // ---------------- ОРГАНИЗАЦИИ (Вузы, компании, сообщества) ----------------
 model Organization {
-  id          String   @id @default(uuid())
-  slug        String   @unique // например: "cfu", "hse", "itmo", "indie-hub"
-  name        String   // "Крымский федеральный университет"
-  shortName   String?  // "КФУ им. В.И. Вернадского"
-  description String?
-  logoUrl     String?
-  website     String?
-  verified    Boolean  @default(false) // Верифицированный вуз / партнер
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(uuid())
+  slug          String   @unique // поддомен: "cfu" -> cfu.morejam.ru
+  name          String   // "Крымский федеральный университет"
+  shortName     String?  // "КФУ им. В.И. Вернадского"
+  description   String?
+  logoUrl       String?
+  website       String?
+  customDomain  String?  @unique // собственный домен вуза (например: jam.cfuv.ru)
+  featuredJamId String?  // закрепленный/главный текущий джем организации
+  themeConfig   Json?    // настройки брендинга (цвета, ретро-пиксельный стиль и т.д.)
+  verified      Boolean  @default(false) // Верифицированный вуз / партнер
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   members OrgMember[]
   jams    Jam[]

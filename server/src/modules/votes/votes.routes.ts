@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { resolveJam } from '../../lib/jamResolver.js';
 import { prisma } from '../../lib/prisma.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
@@ -81,12 +82,10 @@ export const voteRoutes: FastifyPluginAsync = async (fastify) => {
   // Итоговая таблица лидеров (Leaderboard) джема
   fastify.get('/jams/:slug/leaderboard', async (request, reply) => {
     const { slug } = request.params as { slug: string };
-    const jam = await prisma.jam.findUnique({
-      where: { slug },
-      include: { criteria: true }
-    });
-
+    const jam = await resolveJam(slug, request);
     if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
+
+    const criteria = await prisma.jamCriteria.findMany({ where: { jamId: jam.id } });
 
     const submissions = await prisma.submission.findMany({
       where: { jamId: jam.id, isPublished: true },
@@ -104,7 +103,7 @@ export const voteRoutes: FastifyPluginAsync = async (fastify) => {
 
       const criteriaBreakdown: Record<string, { average: number; count: number }> = {};
 
-      for (const crit of jam.criteria) {
+      for (const crit of criteria) {
         const critVotes = sub.votes.filter((v) => v.criteriaId === crit.id);
         if (critVotes.length > 0) {
           const avg = critVotes.reduce((sum, v) => sum + v.score, 0) / critVotes.length;

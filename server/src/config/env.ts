@@ -11,6 +11,7 @@ export const env = {
   JWT_SECRET: process.env.JWT_SECRET || 'super-secret-jwt-key-jam-default',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   CORS_ORIGIN: (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:3000').split(','),
+  ROOT_DOMAIN: process.env.ROOT_DOMAIN || 'morejam.ru',
   DEFAULT_JAM_SLUG: process.env.DEFAULT_JAM_SLUG || 'cfu-game-jam-2026',
   S3: {
     endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
