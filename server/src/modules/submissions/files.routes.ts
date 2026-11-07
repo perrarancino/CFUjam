@@ -21,6 +21,11 @@ const completeUploadSchema = z.object({
 });
 
 export const fileRoutes: FastifyPluginAsync = async (fastify) => {
+  // Парсер для прямой заливки бинарных файлов (ZIP, архивы, байты)
+  fastify.addContentTypeParser(['application/octet-stream', 'application/zip', 'application/x-zip-compressed'], { parseAs: 'buffer' }, (req, body, done) => {
+    done(null, body);
+  });
+
   // 1. Получить Presigned URL для прямой загрузки сборки в S3
   fastify.post('/submissions/:id/upload-url', { preHandler: requireAuth }, async (request, reply) => {
     const { id } = request.params as { id: string };

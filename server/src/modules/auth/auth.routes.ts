@@ -6,14 +6,26 @@ import { requireAuth } from '../../middlewares/authGuard.js';
 
 const registerSchema = z.object({
   email: z.string().email('Некорректный email'),
-  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Только латинские буквы, цифры и _'),
-  password: z.string().min(6, 'Пароль минимум 6 символов'),
+  username: z.string().min(3).max(30).optional(),
+  nick: z.string().min(3).max(30).optional(), // поддержка фронтенда
+  password: z.string().min(6, 'Пароль минимум 6 символов').optional(),
+  pass: z.string().min(6, 'Пароль минимум 6 символов').optional(), // поддержка фронтенда
   displayName: z.string().optional()
+}).refine((data) => data.username || data.nick, {
+  message: 'Необходимо указать username или nick',
+  path: ['username']
+}).refine((data) => data.password || data.pass, {
+  message: 'Необходимо указать password или pass',
+  path: ['password']
 });
 
 const loginSchema = z.object({
   login: z.string().min(1, 'Введите email или никнейм'),
-  password: z.string().min(1, 'Введите пароль')
+  password: z.string().min(1, 'Введите пароль').optional(),
+  pass: z.string().min(1, 'Введите пароль').optional() // поддержка фронтенда
+}).refine((data) => data.password || data.pass, {
+  message: 'Необходимо указать пароль',
+  path: ['password']
 });
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -24,11 +36,13 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'ValidationError', details: parse.error.format() });
     }
 
-    const { email, username, password, displayName } = parse.data;
+    const username = (parse.data.username || parse.data.nick)!.toLowerCase();
+    const password = (parse.data.password || parse.data.pass)!;
+    const { email, displayName } = parse.data;
 
     const existing = await prisma.user.findFirst({
       where: {
-        OR: [{ email: email.toLowerCase() }, { username: username.toLowerCase() }]
+        OR: [{ email: email.toLowerCase() }, { username: username }]
       }
     });
 
@@ -77,7 +91,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'ValidationError', details: parse.error.format() });
     }
 
-    const { login, password } = parse.data;
+    const { login } = parse.data;
+    const password = (parse.data.password || parse.data.pass)!;
     const l = login.trim().toLowerCase();
 
     const user = await prisma.user.findFirst({

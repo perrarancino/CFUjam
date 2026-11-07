@@ -5,9 +5,12 @@ import { prisma } from '../../lib/prisma.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
 const createTeamSchema = z.object({
-  name: z.string().min(2).max(50),
+  name: z.string().min(2).max(50).optional(),
+  team: z.string().min(2).max(50).optional(), // поддержка фронтенда
   tagline: z.string().max(100).optional(),
   direction: z.string().optional(),
+  dir: z.string().optional(), // поддержка фронтенда
+  size: z.number().int().min(1).max(20).optional(), // поддержка фронтенда
   isOpen: z.boolean().default(true),
   role: z.enum([
     'LEADER',
@@ -20,6 +23,9 @@ const createTeamSchema = z.object({
     'TESTER',
     'OTHER'
   ]).default('LEADER')
+}).refine((data) => data.name || data.team, {
+  message: 'Укажите название команды (name или team)',
+  path: ['name']
 });
 
 export const teamRoutes: FastifyPluginAsync = async (fastify) => {
@@ -85,7 +91,9 @@ export const teamRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'BadRequest', message: 'Вы уже состоите в команде этого джема' });
     }
 
-    const { name, tagline, direction, isOpen, role } = parse.data;
+    const name = (parse.data.name || parse.data.team)!.trim();
+    const direction = parse.data.direction || parse.data.dir || 'Общее';
+    const { tagline, isOpen, role } = parse.data;
 
     const team = await prisma.team.create({
       data: {
