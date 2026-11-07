@@ -65,10 +65,12 @@ async function main() {
       votingEndsAt: new Date('2026-11-30T23:59:59Z'),
       criteria: {
         create: [
-          { name: 'Геймплей', description: 'Увлекательность механик и динамика игры', weight: 1.2, order: 0 },
-          { name: 'Графика и стиль', description: 'Художественное оформление, пиксель-арт или 3D', weight: 1.0, order: 1 },
-          { name: 'Звуковое оформление', description: 'Музыка, аудиоэффекты, озвучка', weight: 0.8, order: 2 },
-          { name: 'Соответствие теме', description: 'Отражение темы джема', weight: 1.5, order: 3 }
+          { name: 'Соответствие теме', description: 'Отражение темы джема', weight: 1.2, order: 0 },
+          { name: 'Геймплей и механики', description: 'Увлекательность механик и динамика игры', weight: 1.0, order: 1 },
+          { name: 'Визуальные эффекты и графика', description: 'Художественное оформление и стиль', weight: 1.0, order: 2 },
+          { name: 'Звуковое сопровождение и музыка', description: 'Музыка, аудиоэффекты, атмосфера', weight: 0.8, order: 3 },
+          { name: 'Сюжет и нарратив', description: 'История, мир и проработка персонажей', weight: 1.0, order: 4 },
+          { name: 'Оригинальность и инновации', description: 'Необычный подход и свежие идеи', weight: 1.1, order: 5 }
         ]
       }
     }

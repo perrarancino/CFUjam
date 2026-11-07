@@ -4,6 +4,24 @@ import { sanitizeJamTheme } from '../../lib/jamScheduler.js';
 import { prisma } from '../../lib/prisma.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
+// Библиотека готовых параметров голосования (пресетов), из которых организация может выбирать
+export const CRITERIA_PRESETS = [
+  { id: 'theme', name: 'Соответствие теме', description: 'Насколько идея, мир и механики отражают заданную тему джема', defaultWeight: 1.2 },
+  { id: 'gameplay', name: 'Геймплей и механики', description: 'Динамика, отзывчивость управления, глубина и баланс правил', defaultWeight: 1.0 },
+  { id: 'visuals', name: 'Визуальные эффекты и графика', description: 'Художественный стиль, анимации, интерфейс и сочность картинки', defaultWeight: 1.0 },
+  { id: 'audio', name: 'Звуковое сопровождение и музыка', description: 'Атмосферный саундтрек, сочные звуковые эффекты и озвучка', defaultWeight: 0.8 },
+  { id: 'story', name: 'Сюжет и нарратив', description: 'История, диалоги, проработка персонажей и погружение в мир', defaultWeight: 1.0 },
+  { id: 'humor', name: 'Юмор', description: 'Комедийная составляющая, остроумные ситуации и позитивные эмоции', defaultWeight: 0.9 },
+  { id: 'fear', name: 'Атмосфера и страх / Хоррор', description: 'Саспенс, напряжение, пугающие элементы и ощущение тревоги', defaultWeight: 0.9 },
+  { id: 'innovation', name: 'Оригинальность и инновации', description: 'Необычные механики, свежий взгляд на жанр и смелые идеи', defaultWeight: 1.1 }
+];
+
+const criteriaItemSchema = z.object({
+  name: z.string().min(2, 'Название параметра минимум 2 символа').max(60),
+  description: z.string().max(200).optional(),
+  weight: z.number().min(0.1).max(3.0).default(1.0)
+});
+
 const createJamSchema = z.object({
   slug: z.string().min(3).max(60).regex(/^[a-z0-9-]+$/),
   title: z.string().min(3).max(120),
@@ -17,15 +35,15 @@ const createJamSchema = z.object({
   regStartsAt: z.string().datetime().optional(),
   jamStartsAt: z.string().datetime(),
   submissionEndsAt: z.string().datetime(),
+  gracePeriodMinutes: z.number().int().min(0).max(240).default(60),
   votingEndsAt: z.string().datetime(),
   votingType: z.enum(['PUBLIC', 'PARTICIPANTS_ONLY', 'JUDGES_ONLY', 'HYBRID']).default('HYBRID'),
   minTeamSize: z.number().int().min(1).default(1),
   maxTeamSize: z.number().int().max(20).default(5),
-  criteria: z.array(z.object({
-    name: z.string(),
-    description: z.string().optional(),
-    weight: z.number().default(1.0)
-  })).optional()
+  criteria: z.array(criteriaItemSchema)
+    .min(5, 'Организация должна выбрать минимум 5 параметров голосования')
+    .max(8, 'Максимум 8 параметров голосования')
+    .optional()
 });
 
 export const jamRoutes: FastifyPluginAsync = async (fastify) => {
@@ -186,6 +204,11 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
     return sanitizeJamTheme(jam);
   });
 
+  // Библиотека доступных параметров голосования (для фронтенда / конструктора джема)
+  fastify.get('/criteria/presets', async () => {
+    return CRITERIA_PRESETS;
+  });
+
   // Создать новый джем
   fastify.post('/', { preHandler: requireAuth }, async (request, reply) => {
     const parse = createJamSchema.safeParse(request.body);
@@ -204,11 +227,13 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(409).send({ error: 'Conflict', message: 'Джем с таким slug уже существует' });
     }
 
+    // По умолчанию 5 сбалансированных критериев
     const defaultCriteria = data.criteria || [
-      { name: 'Геймплей', description: 'Увлекательность и механики', weight: 1.0 },
-      { name: 'Графика и стиль', description: 'Визуальное оформление и анимации', weight: 1.0 },
-      { name: 'Звук и музыка', description: 'Атмосфера и аудиоэффекты', weight: 0.8 },
-      { name: 'Соответствие теме', description: 'Насколько идея отражает тему джема', weight: 1.2 }
+      { name: 'Соответствие теме', description: 'Насколько идея отражает тему джема', weight: 1.2 },
+      { name: 'Геймплей и механики', description: 'Увлекательность и механики', weight: 1.0 },
+      { name: 'Визуальные эффекты и графика', description: 'Художественное оформление и анимации', weight: 1.0 },
+      { name: 'Звуковое сопровождение и музыка', description: 'Атмосфера и аудиоэффекты', weight: 0.8 },
+      { name: 'Сюжет и нарратив', description: 'Повествование, диалоги и атмосфера', weight: 1.0 }
     ];
 
     const jam = await prisma.jam.create({
@@ -229,6 +254,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
         regStartsAt: data.regStartsAt ? new Date(data.regStartsAt) : new Date(),
         jamStartsAt: new Date(data.jamStartsAt),
         submissionEndsAt: new Date(data.submissionEndsAt),
+        gracePeriodMinutes: data.gracePeriodMinutes ?? 60,
         votingEndsAt: new Date(data.votingEndsAt),
         criteria: {
           create: defaultCriteria.map((c, i) => ({
@@ -246,6 +272,56 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return reply.status(201).send(jam);
+  });
+
+  // Настройка/изменение параметров голосования организацией (от 5 до 8 параметров)
+  fastify.put('/:slug/criteria', { preHandler: requireAuth }, async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const criteriaSchema = z.array(criteriaItemSchema)
+      .min(5, 'Необходимо выбрать минимум 5 параметров голосования')
+      .max(8, 'Разрешено выбрать максимум 8 параметров голосования');
+
+    const parse = criteriaSchema.safeParse(request.body);
+    if (!parse.success) {
+      return reply.status(400).send({ error: 'ValidationError', details: parse.error.format() });
+    }
+
+    const userId = request.user!.id;
+    const jam = await resolveJam(slug, request);
+    if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
+
+    // Менять критерии можно только до начала голосования
+    if (['VOTING', 'FINISHED'].includes(jam.status)) {
+      return reply.status(400).send({ error: 'BadRequest', message: 'Нельзя менять параметры голосования после его начала' });
+    }
+
+    // Проверяем, что пользователь является создателем джема или админом организации
+    if (jam.organizerId !== userId && request.user?.role !== 'ADMIN') {
+      return reply.status(403).send({ error: 'Forbidden', message: 'Только организатор может изменять параметры' });
+    }
+
+    const newCriteria = parse.data;
+
+    // В транзакции заменяем критерии джема
+    await prisma.$transaction([
+      prisma.jamCriteria.deleteMany({ where: { jamId: jam.id } }),
+      prisma.jamCriteria.createMany({
+        data: newCriteria.map((c, i) => ({
+          jamId: jam.id,
+          name: c.name,
+          description: c.description,
+          weight: c.weight,
+          order: i
+        }))
+      })
+    ]);
+
+    const updated = await prisma.jamCriteria.findMany({
+      where: { jamId: jam.id },
+      orderBy: { order: 'asc' }
+    });
+
+    return { message: 'Параметры голосования успешно сохранены', count: updated.length, criteria: updated };
   });
 
   // Участники джема (вкладка «Люди» / «Участники»)
