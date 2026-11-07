@@ -116,10 +116,12 @@ export const submissionRoutes: FastifyPluginAsync = async (fastify) => {
     const jam = await resolveJam(slug, request);
     if (!jam) return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
 
-    // Проверяем, что дедлайн еще не прошел (или организатор)
-    if (jam.status === 'SUBMISSION_CLOSED' || jam.status === 'FINISHED') {
+    // Проверяем статус джема
+    if (['SUBMISSION_CLOSED', 'VOTING', 'FINISHED'].includes(jam.status)) {
       return reply.status(400).send({ error: 'BadRequest', message: 'Приём сборок на этот джем уже закрыт' });
     }
+
+    const isLate = jam.status === 'GRACE_PERIOD';
 
     // Ищем команду пользователя в этом джеме, где он лидер
     const team = await prisma.team.findFirst({
@@ -145,7 +147,8 @@ export const submissionRoutes: FastifyPluginAsync = async (fastify) => {
         engine: data.engine,
         coverUrl: data.coverUrl,
         screenshots: data.screenshots || [],
-        webPlayableUrl: data.webPlayableUrl || null
+        webPlayableUrl: data.webPlayableUrl || null,
+        isLate
       },
       update: {
         title: data.title,
@@ -155,7 +158,8 @@ export const submissionRoutes: FastifyPluginAsync = async (fastify) => {
         engine: data.engine,
         coverUrl: data.coverUrl,
         screenshots: data.screenshots || [],
-        webPlayableUrl: data.webPlayableUrl || null
+        webPlayableUrl: data.webPlayableUrl || null,
+        isLate: isLate ? true : undefined
       }
     });
 

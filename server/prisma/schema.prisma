@@ -23,7 +23,8 @@ enum JamStatus {
   DRAFT              // Черновик (виден только организатору)
   UPCOMING           // Анонсирован, открыта регистрация команд
   RUNNING            // Джем идёт: разработка, объявлена тема
-  SUBMISSION_CLOSED  // Приём сборок завершён (дедлайн)
+  GRACE_PERIOD       // 60-минутный период милосердия (приём с пометкой об опоздании)
+  SUBMISSION_CLOSED  // Приём сборок окончательно завершён
   VOTING             // Идёт голосование (жюри / участники)
   FINISHED           // Итоги подведены, победители объявлены
 }
@@ -133,6 +134,7 @@ model Jam {
   regStartsAt    DateTime     @default(now())
   jamStartsAt    DateTime     // Старт разработки
   submissionEndsAt DateTime   // Дедлайн приёма сборок
+  gracePeriodMinutes Int      @default(60) // Период милосердия (по умолчанию 60 минут)
   votingEndsAt   DateTime     // Окончание голосования
 
   // Настройки команд
@@ -240,6 +242,7 @@ model Submission {
   coverUrl       String?
   screenshots    String[]  @default([])
   webPlayableUrl String?   // URL к index.html WebGL сборки в S3
+  isLate         Boolean   @default(false) // Загружено в период милосердия (Grace Period)
   isPublished    Boolean   @default(true)
 
   jam   Jam              @relation(fields: [jamId], references: [id], onDelete: Cascade)
@@ -284,6 +287,7 @@ model Vote {
   submissionId String
   criteriaId   String
   userId       String
+  isJudge      Boolean  @default(false) // Оценка поставлена официальным жюри / экспертом
   score        Int      // 1-5 звёзд
   feedback     String?  // Текстовый отзыв / конструктивная критика
   createdAt    DateTime @default(now())

@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { sanitizeJamTheme } from '../../lib/jamScheduler.js';
 import { prisma } from '../../lib/prisma.js';
 import { requireAuth } from '../../middlewares/authGuard.js';
 
@@ -83,7 +84,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
           _count: { select: { teams: true, submissions: true } }
         }
       });
-      if (jam) return jam;
+      if (jam) return sanitizeJamTheme(jam);
     }
 
     // 2. Закрепленный джем организации
@@ -96,7 +97,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
           _count: { select: { teams: true, submissions: true } }
         }
       });
-      if (featured) return featured;
+      if (featured) return sanitizeJamTheme(featured);
     }
 
     // 3. Ищем джем в статусе RUNNING
@@ -112,12 +113,12 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
       },
       orderBy: { jamStartsAt: 'desc' }
     });
-    if (runningJam) return runningJam;
+    if (runningJam) return sanitizeJamTheme(runningJam);
 
-    // 4. Ищем джем в статусе UPCOMING или VOTING
+    // 4. Ищем джем в статусе UPCOMING, GRACE_PERIOD или VOTING
     const activeJam = await prisma.jam.findFirst({
       where: {
-        status: { in: ['UPCOMING', 'VOTING'] },
+        status: { in: ['UPCOMING', 'GRACE_PERIOD', 'VOTING'] },
         ...(orgId ? { organizationId: orgId } : { isPublic: true })
       },
       include: {
@@ -127,7 +128,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
       },
       orderBy: { jamStartsAt: 'desc' }
     });
-    if (activeJam) return activeJam;
+    if (activeJam) return sanitizeJamTheme(activeJam);
 
     // 5. Любой последний созданный джем
     const fallbackJam = await prisma.jam.findFirst({
@@ -149,7 +150,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    return fallbackJam;
+    return sanitizeJamTheme(fallbackJam);
   });
 
   // Получить джем по slug
@@ -182,7 +183,7 @@ export const jamRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: 'NotFound', message: 'Джем не найден' });
     }
 
-    return jam;
+    return sanitizeJamTheme(jam);
   });
 
   // Создать новый джем

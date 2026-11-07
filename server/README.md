@@ -1,113 +1,70 @@
-# CFUjam Backend API (Multi-Tenant Game Jam Platform)
+# CFUjam Backend API (Production-Ready Game Jam Platform)
 
-Бэкенд-сервис для платформы проведения геймджемов (аналог itch.io) с поддержкой мульти-арендности: вузы, компании и сообщества могут создавать и администрировать свои собственные джемы.
-
-## 🚀 Стек технологий
-
-- **Среда выполнения:** Node.js (TypeScript)
-- **Веб-фреймворк:** [Fastify](https://fastify.dev/) (высокая производительность, schema validation)
-- **База данных & ORM:** PostgreSQL + [Prisma ORM](https://www.prisma.io/)
-- **Аутентификация:** JWT (с разделением ролей: `USER`, `ORGANIZER`, `ADMIN`) + `bcryptjs`
-- **Документация API:** Swagger / OpenAPI UI по адресу `/docs`
-- **Очереди & Кэш:** Redis (для фоновой обработки и таймеров фаз)
-- **Хранилище сборок:** S3-совместимое хранилище (MinIO локально / S3 в проде)
+Полнофункциональный бэкенд для платформы проведения геймджемов (аналог itch.io) с поддержкой изолированных поддоменов для вузов и организаций (`cfu.morejam.ru`, `hse.morejam.ru`).
 
 ---
 
-## 📂 Структура проекта
+## 🏗 Архитектурные блоки системы
 
-```text
-server/
-├── prisma/
-│   ├── schema.prisma       # Схема БД (Users, Organizations, Jams, Teams, Submissions, Votes)
-│   └── seed.ts             # Начальные данные (КФУ, CFU Game Jam 2026, админ, критерии)
-├── src/
-│   ├── config/             # Конфигурация (.env)
-│   ├── lib/                # Prisma client, хеширование паролей, JWT утилиты
-│   ├── middlewares/        # requireAuth, requireRole, optionalAuth
-│   ├── modules/
-│   │   ├── auth/           # /api/auth (регистрация, вход, профиль /me)
-│   │   ├── organizations/  # /api/organizations (вузы, компании)
-│   │   ├── jams/           # /api/jams (создание, каталог, текущий джем, участники)
-│   │   ├── teams/          # /api/teams (команды, инвайты, набор участников)
-│   │   ├── submissions/    # /api/submissions (загрузка сборок, игры, лайки)
-│   │   └── votes/          # /api/votes (оценка по критериям, лидерборд)
-│   └── server.ts           # Точка входа Fastify
-├── docker-compose.yml      # PostgreSQL, Redis, MinIO
-├── .env.example            # Пример переменных окружения
-└── package.json
-```
+### 1. Storage & WebGL Sandbox Pipeline (Блок 1)
+* **Direct-to-S3 Uploads:** клиент выгружает сборки напрямую в S3/MinIO по временным Presigned PUT URL, разгружая Node.js.
+* **Zip-Bomb & Path Traversal Security:** архивы проверяются на безопасность (лимит 1 ГБ в распакованном виде, блокировка `../`).
+* **Sandbox WebGL Runner:** безопасный запуск браузерных игр по адресу `/play/:id/index.html` с обязательными заголовками `Cross-Origin-Opener-Policy: same-origin` и `Cross-Origin-Embedder-Policy: require-corp` для поддержки SharedArrayBuffer и Wasm (Unity 2022+ / Godot 4).
 
----
+### 2. Жизненный цикл джема & Период милосердия (Блок 2)
+* **Статусы:** `DRAFT` $\rightarrow$ `UPCOMING` $\rightarrow$ `RUNNING` $\rightarrow$ `GRACE_PERIOD` $\rightarrow$ `VOTING` $\rightarrow$ `FINISHED`.
+* **Период милосердия (Grace Period) = 60 минут:** после дедлайна приём сборок остаётся открытым ещё на 1 час с автоматической пометкой `isLate: true`.
+* **Защита темы:** секретная тема джема не отдаётся через API до момента наступления секунды старта разработки.
 
-## 🌐 Мульти-арендность по поддоменам (Subdomain Multi-Tenancy)
+### 3. Продвинутое судейство & Алгоритмы анти-накрутки (Блок 3)
+* **Карма-очередь (itch.io Queue):** алгоритм выдаёт на оценку игры с наименьшим количеством голосов. Участник обязан оценить минимум 3 чужие игры для квалификации своей команды в итоговый зачёт.
+* **Trimmed Mean (усечённое среднее):** отсечение 1 максимального и 1 минимального балла для нейтрализации накруток и хейтеров.
+* **Байесовское сглаживание:** защита от ситуаций, когда игра с 1 оценкой 5.0 обходит игру с 30 оценками 4.9.
+* **Разделение Жюри / Игроки:** экспертные оценки жюри и народное голосование считаются раздельно и взвешиваются в гибридном режиме.
+* **Антифрод:** аккаунты, зарегистрированные после дедлайна джема, не допускаются к голосованию.
 
-Каждая организация или вуз работает на своём поддомене:
-* `cfu.morejam.ru` — Крымский федеральный университет
-* `hse.morejam.ru` — Высшая школа экономики
-* `itmo.morejam.ru` — ИТМО
-* `morejam.ru` — Корневая витрина платформы (все публичные джемы и каталог вузов)
-* Поддержка CNAME (собственный домен вуза): `jam.cfuv.ru`
+### 4. Real-time события (SSE) (Блок 4)
+* `GET /api/jams/:slug/live` — Server-Sent Events поток для синхронизации таймеров, моментального открытия темы (`THEME_REVEALED`) и смены фаз джема.
+* `GET /api/notifications/live` — личные живые уведомления пользователя (инвайты в команду, отзывы, получение XP).
 
-### Как это работает в API:
-Бэкенд автоматически определяет организацию из заголовка `Host` (или `X-Org-Slug` в тестах):
-1. **На поддомене организации (`cfu.morejam.ru`)**:
-   - `GET /api/org` $\rightarrow$ информация о КФУ (название, логотип, контакты, тема оформления).
-   - `GET /api/jams` $\rightarrow$ список всех джемов КФУ (прошедшие, активные, запланированные).
-   - `GET /api/jams/current` $\rightarrow$ **текущий выбранный/активный джем этой организации** (без хардкода!).
-   - `GET /api/jams/cfu-pixel-jam-2025` $\rightarrow$ архивный джем КФУ.
-   - `GET /api/jams/:slug/teams` $\rightarrow$ команды этого конкретного джема.
-2. **На главном домене платформы (`morejam.ru`)**:
-   - `GET /api/jams` $\rightarrow$ все публичные джемы всех вузов и сообществ.
-   - `GET /api/organizations` $\rightarrow$ каталог всех вузов и компаний.
-
-### 🧪 Как тестировать поддомены локально:
-1. Через браузер: обращаться к `cfu.localhost:4000/api/jams/current` (современные браузеры автоматически резолвят `*.localhost` на `127.0.0.1`).
-2. Через Swagger / Postman: передать заголовок `X-Org-Slug: cfu` или query-параметр `?org=cfu`.
+### 6. Production Hardening (Блок 6)
+* `@fastify/helmet` — защита заголовков.
+* `@fastify/rate-limit` — ограничение частоты запросов против DDoS и перебора паролей.
+* `GET /health` — проверка состояния БД, потребления памяти (RSS/Heap) и аптайма.
+* Correlation IDs (`x-request-id`) в каждом ответе для трассировки ошибок.
 
 ---
 
-## 🛠 Запуск в разработке
-
-### 1. Запуск инфраструктуры (БД, Redis, MinIO)
-Если установлен Docker:
-```bash
-docker compose up -d
-```
-Запустится:
-- **PostgreSQL**: порт `5432`
-- **Redis**: порт `6379`
-- **MinIO Console**: `http://localhost:9001` (логин/пароль: `minioadmin` / `minioadmin`)
-
-### 2. Генерация Prisma Client и применение миграций
-```bash
-npm run prisma:generate
-npm run prisma:push      # или npm run prisma:migrate
-npm run seed             # заполнит БД вузом КФУ и джемом по умолчанию
-```
-
-### 3. Запуск сервера в режиме разработки
-```bash
-npm run dev
-```
-Сервер будет доступен на `http://localhost:4000`.
-Интерактивная документация Swagger: `http://localhost:4000/docs`.
-
----
-
-## 🌐 Ключевые эндпоинты API
+## 🌐 Спецификация API
 
 | Метод | URL | Описание |
 |---|---|---|
-| `POST` | `/api/auth/register` | Регистрация участника / организатора |
-| `POST` | `/api/auth/login` | Вход (получение JWT токена) |
+| `POST` | `/api/auth/register` | Регистрация (с начислением опыта XP) |
+| `POST` | `/api/auth/login` | Вход (получение JWT) |
 | `GET` | `/api/auth/me` | Личные данные, уровень, опыт, команды |
-| `GET` | `/api/jams/current` | Дефолтный джем (КФУ Jam для текущего фронтенда) |
-| `GET` | `/api/jams` | Каталог всех джемов платформы |
-| `POST` | `/api/jams` | Создание нового джема (для вуза или компании) |
-| `GET` | `/api/jams/:slug/teams` | Команды конкретного джема |
-| `POST` | `/api/jams/:slug/teams` | Регистрация команды |
-| `GET` | `/api/jams/:slug/submissions` | Игры, поданные на джем |
-| `POST` | `/api/jams/:slug/submissions` | Публикация сборки игры |
+| `GET` | `/api/org` | Профиль текущего вуза/организации на поддомене |
+| `GET` | `/api/jams/current` | Текущий активный джем вуза (динамический) |
+| `GET` | `/api/jams` | Каталог джемов (на поддомене — только этого вуза) |
+| `GET` | `/api/jams/:slug/teams` | Команды джема |
+| `POST` | `/api/jams/:slug/teams` | Создание команды |
+| `POST` | `/api/submissions/:id/upload-url` | Получение Presigned S3 URL на заливку билда |
+| `POST` | `/api/submissions/:id/complete-upload` | Фиксация загрузки и авто-распаковка WebGL |
+| `GET` | `/play/:id/*` | Запуск браузерной WebGL игры в песочнице |
+| `GET` | `/api/jams/:slug/queue` | Карма-очередь игр на оценку |
 | `POST` | `/api/submissions/:id/vote` | Оценка работы по критериям джема |
-| `GET` | `/api/jams/:slug/leaderboard` | Таблица лидеров и средние баллы |
+| `GET` | `/api/jams/:slug/leaderboard` | Таблица лидеров (Trimmed Mean + Жюри/Народ) |
+| `GET` | `/api/jams/:slug/live` | SSE поток событий джема и таймера темы |
+| `GET` | `/health` | Диагностика сервера и подключение к БД |
+
+---
+
+## 🚀 Запуск в разработке
+
+```powershell
+cd server
+npm install
+npm run prisma:push    # Применение схемы БД
+npm run seed           # Наполнение базой КФУ и джемами
+npm run dev            # Запуск сервера на http://localhost:4000
+```
+Интерактивный Swagger API UI доступен по адресу: `http://localhost:4000/docs`.
