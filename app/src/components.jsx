@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { asset, faceSvg, hue, shapeIdx } from './lib.js';
 import { bannerImage } from './data.js';
 import { useApp } from './store.jsx';
+import { profileOf } from './profiles.js';
 
 /* иконка: набор масок описан в styles.css (.ico-имя) */
 export function Icon({ n, cls }) {
@@ -10,11 +11,23 @@ export function Icon({ n, cls }) {
 }
 
 /* аватарка с «каракулей» и формой по имени */
-export function Avatar({ name, cls = '', mark }) {
-  const hasRing = /\br-(mentor|org|jury|win)\b/.test(cls);
+export function Avatar({ name = '', cls = '', mark, interactive = true }) {
+  const { S, openModal } = useApp();
+  const profile = profileOf(name, S);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [profile.avatar]);
+  const classes = profile.demo ? cls.replace(/\b(?:on|away|r-mentor|r-org|r-jury|r-win)\b/g, '') + ' ' + profile.cls : cls;
+  const hasRing = /\br-(mentor|org|jury|win)\b/.test(classes);
+  const open = (e) => { e.stopPropagation(); openModal({ type: 'profile', who: profile.nick || name }); };
   return (
-    <span className={`av ${cls} sh${shapeIdx(name)}`.replace(/\s+/g, ' ')} data-n={name} style={{ '--h': hue(name) }}>
-      <i className="face" dangerouslySetInnerHTML={{ __html: faceSvg(name) }} />
+    <span className={`av ${classes} sh${shapeIdx(profile.nick || name)}`.replace(/\s+/g, ' ')} data-n={profile.full} style={{ '--h': hue(profile.nick || name) }}
+      role={interactive ? 'button' : undefined} tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `Профиль: ${profile.full}` : undefined} title={profile.full}
+      onClick={interactive ? open : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } } : undefined}>
+      {profile.avatar && !failed
+        ? <i className="face"><img src={asset(profile.avatar)} alt={profile.full} onError={() => setFailed(true)} loading="lazy" /></i>
+        : <i className="face" dangerouslySetInnerHTML={{ __html: faceSvg(profile.nick || name) }} />}
       {(hasRing || mark) && <em className="mk" />}
     </span>
   );

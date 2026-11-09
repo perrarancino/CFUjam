@@ -3,6 +3,10 @@ import { api } from './api.js';
 import { Avatar, Check, Field, Icon, Modal } from './components.jsx';
 import { CHK, hash, userRec } from './lib.js';
 import { useApp } from './store.jsx';
+import { profileOf } from './profiles.js';
+import { BASE_GAMES } from './data.js';
+import { saveMessage } from './messages.js';
+import { useNav } from './nav.jsx';
 
 /* ---------- вход / регистрация ---------- */
 function AuthForm({ tab, setTab, close }) {
@@ -159,26 +163,30 @@ export function OAuthModal({ id, onClose }) {
 
 /* ---------- сообщение ---------- */
 export function WriteModal({ who, onClose }) {
-  const { toast, gainXp } = useApp();
+  const { S, update, toast, needAuth } = useApp();
+  const { show } = useNav();
   const [t, setT] = useState('');
   const [e, setE] = useState('');
   const submit = (ev, close) => {
     ev.preventDefault();
     const s = t.trim();
+    if (!S.user) return needAuth('Войдите, чтобы сохранить сообщение');
     if (!s) return setE('Напишите хоть пару слов');
     if (s.length > 300) return setE('Слишком длинно: ' + s.length + '/300');
-    close(); toast('Сообщение отправлено', 'ok'); gainXp(5);
+    update((d) => saveMessage(d, who, s));
+    close(); toast('Сообщение сохранено в переписке', 'ok'); show('messages');
   };
   return (
     <Modal title={'Сообщение для ' + who} onClose={onClose}>
       {(close) => (
         <form noValidate className="stack-v" onSubmit={(ev) => submit(ev, close)}>
+          <p className="hintp">Сообщение сохранится в этом браузере. Доставка другим участникам пока не подключена.</p>
           <div className={'field' + (e ? ' err' : '')}>
             <label htmlFor="m_t">Текст</label>
             <textarea id="m_t" rows={4} placeholder="Привет! Хочешь в нашу команду?" value={t} onChange={(x) => { setT(x.target.value); setE(''); }} />
             <small>{e || 'До 300 символов'}</small>
           </div>
-          <button className="btn primary block" type="submit"><Icon n="send" />Отправить</button>
+          <button className="btn primary block" type="submit"><Icon n="send" />Сохранить сообщение</button>
         </form>
       )}
     </Modal>
@@ -456,10 +464,49 @@ export function LfgProfileModal({ onClose }) {
   );
 }
 
+function PublicProfileModal({ who, profile, onClose }) {
+  const { S, needAuth, openModal } = useApp();
+  const p = profile || profileOf(who, S);
+  const games = BASE_GAMES.filter((g) => g.crew.some((name) => profileOf(name, S).nick === p.nick));
+  return (
+    <Modal title="Профиль участника" onClose={onClose}>
+      <div className="public-profile">
+        <div className="profile-intro"><Avatar name={p.nick} cls="xl" interactive={false} /><div><h4>{p.full}</h4><span className="handle">@{p.nick}</span><p>{p.role}</p></div></div>
+        {p.demo && <span className="badge">Демо-профиль</span>}
+        <p className="profile-bio">{p.bio || 'Участник пока не добавил описание.'}</p>
+        {!!p.skills?.length && <div className="row profile-skills">{p.skills.map((skill) => <span className="tag" key={skill}>{skill}</span>)}</div>}
+        <div className="stats">
+          <div><Icon n="star" /><b>{p.rate}</b><small>Рейтинг</small></div>
+          <div><Icon n="gamepad-2" /><b>{p.games}</b><small>Игр</small></div>
+          <div><Icon n="flag" /><b>{p.jams}</b><small>Джемов</small></div>
+        </div>
+        {!!games.length && <div className="profile-projects"><h4>Проекты на сайте</h4>{games.map((g) => <div key={g.id}><b>{g.title}</b><p>{g.text}</p></div>)}</div>}
+        <button className="btn dark block" type="button" onClick={() => S.user ? openModal({ type: 'write', who: p.full }) : needAuth('Войдите, чтобы писать сообщения')}><Icon n="send" />Написать сообщение</button>
+      </div>
+    </Modal>
+  );
+}
+
+function NotificationsModal({ onClose }) {
+  const { S, update, needAuth, openModal } = useApp();
+  const { show } = useNav();
+  const notifications = (S.notifications || []).filter((n) => n.user === S.user);
+  const markRead = () => update((d) => { for (const n of d.notifications || []) if (n.user === d.user) n.read = true; });
+  return <Modal title="Уведомления" onClose={onClose}>
+    {!S.user ? <div className="stack-v"><p>Войдите, чтобы видеть события своей команды и приглашения.</p><button className="btn primary" onClick={() => needAuth('Войдите, чтобы открыть уведомления')}>Войти</button></div> : <div className="stack-v">
+      {notifications.length ? notifications.map((n) => <button className={'notification-item' + (n.read ? '' : ' unread')} key={n.id} onClick={() => { update((d) => { const found = d.notifications.find((item) => item.id === n.id); if (found) found.read = true; }); onClose(); show(n.route || 'teams'); }}><Icon n="bell" /><span>{n.text}</span></button>) : <p className="hintp">Новых уведомлений пока нет.</p>}
+      {notifications.some((n) => !n.read) && <button className="btn secondary sm" onClick={markRead}>Прочитать все</button>}
+      <button className="btn secondary" onClick={() => openModal({ type: 'reqs' })}><Icon n="users" />Заявки и приглашения в команду</button>
+    </div>}
+  </Modal>;
+}
+
 export function Modals() {
   const { modal, closeModal } = useApp();
   if (!modal) return null;
   const key = modal.type + (modal.id || modal.tab || modal.who || '');
+  if (modal.type === 'notifications') return <NotificationsModal key={key} onClose={closeModal} />;
+  if (modal.type === 'profile') return <PublicProfileModal key={key} who={modal.who} profile={modal.profile} onClose={closeModal} />;
   if (modal.type === 'auth') return <AuthModal key={key} tab={modal.tab} onClose={closeModal} />;
   if (modal.type === 'oauth') return <OAuthModal key={key} id={modal.id} onClose={closeModal} />;
   if (modal.type === 'write') return <WriteModal key={key} who={modal.who} onClose={closeModal} />;

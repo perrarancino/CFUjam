@@ -1,186 +1,79 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { Avatar, Banner, Field, Icon, Range } from '../components.jsx';
-import { hue, CHK, userRec } from '../lib.js';
+import { CHK, userRec } from '../lib.js';
+import { catalogGames } from '../catalog.js';
+import { GameList } from '../game-components.jsx';
 import { useNav } from '../nav.jsx';
 import { useApp } from '../store.jsx';
 
-const DEFAULT_STACK = ['Алина К', 'Данил М', 'Софья В', 'Артём Р'];
-
 export default function Teams() {
-  const { S, update, toast, needAuth, gainXp, openModal } = useApp();
+  const { S, update, toast, needAuth, openModal } = useApp();
   const { show } = useNav();
-  const [f, setF] = useState({ team: '', mail: '', nick: '', dir: 'Программирование', size: 4 });
+  const [f, setF] = useState({ team: '', mail: '', nick: '', dir: 'Программирование', size: 5 });
   const [err, setErr] = useState({});
-  const [up, setUp] = useState({ v: 72, busy: false });
-  const [isOpenRecruiting, setIsOpenRecruiting] = useState(true);
-  const timer = useRef(null);
-
-  /* после входа подставляем почту и ник (только в пустые поля); после выхода очищаем */
-  useEffect(() => {
-    if (S.user) {
-      const u = userRec(S, S.user);
-      setF((x) => ({ ...x, mail: x.mail || (u ? u.email : ''), nick: x.nick || S.user }));
-    } else setF((x) => ({ ...x, mail: '', nick: '' }));
-  }, [S.user]);
-  useEffect(() => () => clearInterval(timer.current), []);
-
+  const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
   const team = S.user && S.teams[S.user];
-  const set = (k) => (e) => {
-    const v = e.target.value;
-    setF((x) => ({ ...x, [k]: v }));
-    const msg = !v ? '' : k === 'team' ? CHK.team(v) : k === 'mail' ? CHK.email(v.trim()) : k === 'nick' ? CHK.nick(S, v.trim(), S.user) : '';
-    setErr((x) => ({ ...x, [k]: msg }));
+  const games = catalogGames(S);
+  useEffect(() => {
+    const user = S.user && userRec(S, S.user);
+    setF((x) => ({ ...x, mail: user?.email || '', nick: S.user || '' }));
+    setErr({});
+  }, [S.user]);
+  const set = (key) => (e) => { setF((x) => ({ ...x, [key]: e.target.value })); setErr((x) => ({ ...x, [key]: '' })); };
+  const create = async (event) => {
+    event.preventDefault();
+    if (!S.user) return needAuth('Войдите, чтобы создать команду');
+    if (team || busy) return;
+    const errors = { team: CHK.team(f.team), mail: CHK.email(f.mail.trim()), nick: CHK.nick(S, f.nick.trim(), S.user) };
+    setErr(errors);
+    if (Object.values(errors).some(Boolean)) return;
+    setBusy(true);
+    const owner = S.user;
+    try {
+      const created = S.isOnline ? await api.createTeam('current', { name: f.team.trim(), dir: f.dir, size: f.size }) : null;
+      update((d) => {
+        if (d.teams[owner]) return;
+        d.teams[owner] = { id: created?.id || null, name: f.team.trim(), dir: f.dir, size: f.size, members: [owner], isOpen: true };
+        d.games.push({ id: 'u-' + crypto.randomUUID(), owner, title: f.team.trim(), dir: f.dir, text: 'Новый игровой проект команды «' + f.team.trim() + '».' });
+      });
+      toast(S.isOnline ? 'Команда создана' : 'Команда и проект сохранены в этом браузере', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать команду', 'err'); }
+    finally { setBusy(false); }
   };
-
-  const setSize = (n) => {
-    setF((x) => ({ ...x, size: n }));
-    if (team) update((d) => { const t = d.teams[d.user]; t.size = Math.max(n, t.members.length); });
+  const recruitment = async () => {
+    if (!team || busy) return;
+    const next = team.isOpen === false;
+    setBusy(true);
+    try {
+      if (S.isOnline && team.id) await api.updateTeamRecruitment(team.id, { isOpen: next });
+      update((d) => { d.teams[S.user].isOpen = next; });
+      toast(next ? 'Набор открыт' : 'Набор закрыт', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось изменить набор', 'err'); }
+    finally { setBusy(false); }
   };
-
-  const create = async () => {
-    if (!S.user) return needAuth('Чтобы создать команду, войдите в аккаунт');
-    if (team) return toast('У вас уже есть команда «' + team.name + '»', 'warn');
-    const e = { team: CHK.team(f.team), mail: CHK.email(f.mail.trim()), nick: CHK.nick(S, f.nick.trim(), S.user) };
-    setErr(e);
-    if (Object.values(e).some(Boolean)) return toast('Проверьте поля формы', 'err');
-    const name = f.team.trim();
-
-    let createdTeamId = null;
-    if (S.isOnline) {
-      try {
-        const res = await api.createTeam('current', {
-          name,
-          dir: f.dir,
-          size: f.size
-        });
-        if (res && res.id) createdTeamId = res.id;
-      } catch (err) {
-        toast('Создано локально: ' + (err.message || ''), 'warn');
-      }
-    }
-
-    update((d) => {
-      d.teams[d.user] = { id: createdTeamId, name, dir: f.dir, size: f.size, members: [d.user] };
-      d.games.push({ id: createdTeamId || ('u' + Date.now()), owner: d.user, title: name, dir: f.dir, hue: hue(name) });
-    });
-
-    gainXp(25);
-    toast('Команда «' + name + '» создана', 'ok');
-    setTimeout(() => show('games'), 900);
-  };
-
-  const upload = () => {
-    if (!S.user) return needAuth('Чтобы загрузить сборку, войдите в аккаунт');
-    if (up.busy) return;
-    let v = 0;
-    setUp({ v: 0, busy: true });
-    timer.current = setInterval(() => {
-      v = Math.min(100, v + 4 + Math.random() * 8);
-      if (v >= 100) {
-        clearInterval(timer.current);
-        setUp({ v: 100, busy: false });
-        toast('Сборка загружена', 'ok'); gainXp(15);
-      } else setUp({ v, busy: true });
-    }, 140);
-  };
-
-  const toggleRecruitment = async () => {
-    const next = !isOpenRecruiting;
-    setIsOpenRecruiting(next);
-    toast(next ? 'Набор в команду открыт на бирже' : 'Набор закрыт', 'ok');
-
-    if (S.isOnline && team?.id) {
-      try {
-        await api.updateTeamRecruitment(team.id, { isOpen: next });
-      } catch {
-        // оффлайн
-      }
-    }
-  };
-
-  const members = team ? team.members : DEFAULT_STACK;
-  const total = team ? Math.max(team.size, team.members.length) : 5;
-
-  return (
-    <>
-      <Banner img="w04" title="Команды" text="Создай команду, управляй составом, публикуй вакансии на бирже и загружай сборку." />
-      <div className="grid g2 pull">
-        <div className="card" id="form-card">
-          <h3><Icon n="clipboard-list" />Новая команда</h3>
-          <div className="stack-v">
-            <Field id="f-team" name="team" label="Название команды" placeholder="Например, «Белые волки»" hint="От 3 до 24 символов" error={err.team} value={f.team} onChange={set('team')} />
-            <Field id="f-mail" name="mail" label="Почта" type="email" placeholder="you@cfuv.ru" hint="Для связи с командой" error={err.mail} value={f.mail} onChange={set('mail')} />
-            <Field id="f-nick" name="nick" label="Ник" placeholder="Например, wolf_dev" hint="Контактный ник в команде" error={err.nick} value={f.nick} onChange={set('nick')} />
-            <Field id="f-dir" name="dir" label="Направление">
-              <select id="f-dir" value={f.dir} onChange={(e) => setF((x) => ({ ...x, dir: e.target.value }))}>
-                <option>Программирование</option><option>Графика</option><option>Звук</option><option>Геймдизайн</option>
-              </select>
-            </Field>
-            <Range id="rg-team" min={1} max={5} value={f.size} onChange={setSize} label={{ text: 'Размер команды' }} />
-            <div className="row"><button className="btn dark" id="mk-team" type="button" onClick={create}><Icon n="rocket" />Создать команду</button></div>
-          </div>
-        </div>
-
-        <div className="prof b g-green" id="team-card">
-          <div className="grain" />
-          <div className="pin">
-            <h3><Icon n="users" /><span>{team ? `Команда «${team.name}»` : 'Команда «Чёрное море»'}</span></h3>
-            <div className="avstack">
-              {members.map((m) => <Avatar key={m} name={m} />)}
-              {!team && <span className="av more"><i className="face">+12</i></span>}
-            </div>
-            <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between', margin: '4px 0' }}>
-              <span className="chip ok"><i className="pt" />{members.length} из {total} мест занято</span>
-              {team && (
-                <button
-                  className={'btn sm ' + (isOpenRecruiting ? 'light' : 'ghost')}
-                  type="button"
-                  onClick={toggleRecruitment}
-                  title="Управление набором на бирже тимейтов"
-                >
-                  <Icon n="users" />
-                  <span>{isOpenRecruiting ? 'Набор открыт' : 'Набор закрыт'}</span>
-                </button>
-              )}
-            </div>
-
-            {/* Быстрые действия команды: Дневники и Биржа */}
-            {team && (
-              <div className="row" style={{ gap: 8, margin: '8px 0' }}>
-                <button
-                  className="btn light sm"
-                  type="button"
-                  onClick={() => openModal({ type: 'devlog_compose' })}
-                >
-                  <Icon n="book-open" />
-                  <span>В дневник</span>
-                </button>
-                <button
-                  className="btn light sm"
-                  type="button"
-                  onClick={() => show('people')}
-                >
-                  <Icon n="sparkles" />
-                  <span>Найти тимейта</span>
-                </button>
-              </div>
-            )}
-
-            <div className="up">
-              <div className="bar-l"><span>Загрузка сборки</span><span id="up-pct">{Math.round(up.v)}%</span></div>
-              <div className="bar" id="up-bar" style={{ '--v': up.v + '%' }}><i /></div>
-            </div>
-            <div className="steps">
-              <div className="step done"><i><b className="ico ico-check" /></i>Заявка</div>
-              <div className="step done"><i><b className="ico ico-check" /></i>Команда</div>
-              <div className="step cur"><i>3</i>Разработка</div>
-              <div className="step"><i>4</i>Защита</div>
-            </div>
-            <button className="wide light" id="up-btn" type="button" disabled={up.busy} onClick={upload}><i className="circ"><Icon n="upload" /></i><span>Загрузить сборку</span></button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+  const demoNames = ['Чёрное море', 'Тихий берег', 'Неоновый рассвет'];
+  const directory = [
+    ...Object.entries(S.teams).map(([owner, t]) => ({ ...t, key: owner, projects: games.filter((g) => g.owner === owner), demo: false })),
+    ...games.filter((g) => /^g[0-2]$/.test(g.id)).map((g, index) => ({ key: g.id, name: demoNames[index], members: g.crew, size: 5, dir: g.tags.join(' · '), projects: [g], demo: true }))
+  ].filter((t) => (t.name + ' ' + t.dir).toLowerCase().includes(query.trim().toLowerCase()));
+  return <>
+    <Banner title="Команды" text="Собери участников, управляй своей командой и открывай игровые проекты." />
+    <div className="grid g2 pull team-workspace">
+      {team ? <section className="card"><div className="section-heading"><h2>Моя команда</h2><span className="badge">{team.isOpen === false ? 'Набор закрыт' : 'Набор открыт'}</span></div><h3>{team.name}</h3><p className="hintp">{team.members.length} из {team.size} мест занято · {team.dir}</p><div className="team-member-list">{team.members.map((name) => <Avatar key={name} name={name} />)}</div><div className="team-actions"><button className="btn secondary sm" disabled={busy} onClick={recruitment}>{team.isOpen === false ? 'Открыть набор' : 'Закрыть набор'}</button><button className="btn secondary sm" onClick={() => openModal({ type: 'reqs' })}>Заявки и приглашения</button><button className="btn secondary sm" onClick={() => show('people')}>Найти участников</button></div></section> : <section className="card"><h2>Создать команду</h2><form className="stack-v team-create-form" onSubmit={create} noValidate>
+        <Field id="f-team" label="Название команды" hint="От 3 до 24 символов" error={err.team} value={f.team} onChange={set('team')} placeholder="Например, «Белые волки»" />
+        <Field id="f-mail" label="Контактная почта" type="email" error={err.mail} value={f.mail} onChange={set('mail')} placeholder="you@cfuv.ru" />
+        <Field id="f-nick" label="Контактный ник" error={err.nick} value={f.nick} onChange={set('nick')} />
+        <Field id="f-dir" label="Направление"><select id="f-dir" value={f.dir} onChange={set('dir')}><option>Программирование</option><option>Графика</option><option>Звук</option><option>Геймдизайн</option></select></Field>
+        <Range id="rg-team" min={1} max={5} value={f.size} onChange={(size) => setF((x) => ({ ...x, size }))} label={{ text: 'Мест в команде', out: f.size }} />
+        <p className="hintp">Вместе с командой создадим страницу проекта. {!S.isOnline && 'Команда и проект сохранятся в этом браузере.'}</p><button className="btn primary" disabled={busy}><Icon n="users" />{busy ? 'Создаём…' : 'Создать команду'}</button>
+      </form></section>}
+      <section className="card"><h2>Проекты команды</h2>{team ? <><GameList games={games.filter((g) => g.owner === S.user)} empty="У команды пока нет проектов." /><button className="btn secondary sm" onClick={() => openModal({ type: 'devlog_compose' })}><Icon n="book-open" />Написать в дневник</button></> : <div className="team-start"><Icon n="gamepad-2" /><p>После создания команды здесь появится её игра. Страница проекта также будет доступна из каталога и кабинета.</p><button className="btn secondary sm" onClick={() => show('games')}>Посмотреть игры</button></div>}</section>
+    </div>
+    <section className="team-directory"><div className="section-heading"><h2>Команды джема</h2><span className="badge">{directory.length}</span></div><div className="field"><label htmlFor="team-search">Поиск команд</label><div className="game-search-input"><Icon n="search" /><input id="team-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Название или направление…" /></div></div>
+      <div className="grid g3">{directory.map((t) => <article className="card team-directory-card" key={t.key}><div className="section-heading"><h3>{t.name}</h3>{t.demo && <span className="badge">Демо</span>}</div><p className="hintp">{t.dir}</p><div className="team-member-list">{t.members.map((name) => <Avatar name={name} key={name} cls="sm" />)}</div><p className="hintp">{t.members.length} из {t.size} мест занято</p><GameList games={t.projects} /></article>)}</div>
+      {!directory.length && <p className="hintp">Команды не найдены.</p>}
+    </section>
+  </>;
 }

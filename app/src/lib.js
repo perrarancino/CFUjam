@@ -81,7 +81,7 @@ export const CHK = {
   team: (v) => { v = v.trim(); return v.length >= 3 && v.length <= 24 ? '' : 'От 3 до 24 символов'; }
 };
 
-export const ROUTES = ['home', 'teams', 'games', 'people', 'me'];
+export const ROUTES = ['home', 'games', 'teams', 'devlogs', 'people', 'messages', 'me', 'game'];
 
 /* адрес файла из public относительно страницы (нужен для CSS-переменных --img: url() разрешается относительно файла стилей) */
 export const asset = (path) => new URL(path, document.baseURI).href;

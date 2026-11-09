@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Avatar, Icon, Toasts } from './components.jsx';
+import { Icon, Toasts } from './components.jsx';
 import { Modals } from './modals.jsx';
 import { NavProvider, useIndicator, useNav } from './nav.jsx';
 import { AppProvider, useApp } from './store.jsx';
@@ -9,18 +9,23 @@ import Home from './views/Home.jsx';
 import Me from './views/Me.jsx';
 import People from './views/People.jsx';
 import Teams from './views/Teams.jsx';
+import Game from './views/Game.jsx';
+import Messages from './views/Messages.jsx';
 
 const TABS = [
   ['home', 'house', 'Главная'],
-  ['devlogs', 'book-open', 'Дневники'],
+  ['games', 'gamepad-2', 'Игры'],
   ['teams', 'users', 'Команды'],
+  ['devlogs', 'book-open', 'Дневники'],
   ['people', 'sparkles', 'Биржа'],
-  ['games', 'gamepad-2', 'Игры']
+  ['messages', 'message-square', 'Сообщения']
 ];
 
 function Header() {
   const { S, openModal } = useApp();
   const { view, show } = useNav();
+  const activeView = view === 'game' ? 'games' : view;
+  const unread = S.user ? (S.notifications || []).filter((n) => n.user === S.user && !n.read).length : 0;
   const navRef = useRef(null);
   useIndicator(navRef, view);
 
@@ -29,18 +34,19 @@ function Header() {
   const avatar = () => (S.user ? show('me') : openModal({ type: 'auth', tab: 'in' }));
   return (
     <header className="nav">
-      <a className="brand" href="#/home" onClick={go('home')}><span className="logo"><Icon n="gamepad-2" /></span><span className="bt">CFU JAM</span></a>
+      <a className="brand" href="#/home" onClick={go('home')} aria-label="CFU JAM — главная"><img className="brand-crest" src="brand/cfu-crest-original.png" alt="" width="128" height="128" /><span className="bt">CFU <span>JAM</span></span></a>
       <nav className="tabsnav" aria-label="Разделы" ref={navRef}>
         <i className="ind" />
         {TABS.map(([id, ic, label]) => (
-          <a key={id} href={'#/' + id} data-go={id} className={view === id ? 'on' : ''} aria-current={view === id ? 'page' : undefined} title={label} onClick={go(id)}>
+          <a key={id} href={'#/' + id} data-go={id} className={activeView === id ? 'on' : ''} aria-current={activeView === id ? 'page' : undefined} title={label} onClick={go(id)}>
             <Icon n={ic} /><span>{label}</span>
           </a>
         ))}
       </nav>
       <div className="nav-r">
-        <button className={'avbtn' + (view === 'me' ? ' on' : '')} type="button" aria-label={S.user ? 'Личный кабинет' : 'Войти'} title={S.user ? 'Личный кабинет' : 'Войти'} onClick={avatar}>
-          <Avatar name={S.user || 'Гость'} cls="sm on" />
+        <button className="btn secondary header-notifications" type="button" aria-label={'Уведомления' + (unread ? `: ${unread} непрочитанных` : '')} title="Уведомления" onClick={() => openModal({ type: 'notifications' })}><Icon n="bell" />{unread > 0 && <span className="notification-dot">{unread}</span>}</button>
+        <button className={'btn secondary header-account' + (view === 'me' ? ' on' : '')} type="button" aria-label={S.user ? 'Личный кабинет' : 'Войти'} title={S.user ? 'Личный кабинет' : 'Войти'} onClick={avatar}>
+          {!S.user && <Icon n="user" />}<span>{S.user ? 'Кабинет' : 'Войти'}</span>
         </button>
       </div>
     </header>
@@ -74,10 +80,12 @@ function Shell() {
       <Header />
       <main>
         {section('home', <Home user={S.user} onRegister={() => (S.user ? show('teams') : openModal({ type: 'auth', tab: 'reg' }))} />)}
-        {section('devlogs', <Devlogs />)}
-        {section('teams', <Teams />)}
-        {section('people', <People />)}
         {section('games', <Games />)}
+        {section('game', <Game />)}
+        {section('teams', <Teams />)}
+        {section('devlogs', <Devlogs />)}
+        {section('people', <People />)}
+        {section('messages', <Messages />)}
         {section('me', <Me />)}
       </main>
       <Toasts />

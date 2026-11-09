@@ -13,9 +13,14 @@ const fromHash = () => {
   const m = location.hash.match(/^#\/(\w+)/);
   return m && ROUTES.includes(m[1]) ? m[1] : 'home';
 };
+const gameFromHash = () => {
+  try { return decodeURIComponent(location.hash.match(/^#\/game\/([^/?#]+)/)?.[1] || ''); }
+  catch { return ''; }
+};
 
 export function NavProvider({ children }) {
   const [view, setView] = useState(fromHash);
+  const [gameId, setGameId] = useState(gameFromHash);
   const viewRef = useRef(view);
   viewRef.current = view;
 
@@ -27,7 +32,8 @@ export function NavProvider({ children }) {
     const curEl = document.querySelector(`.view[data-view="${cur}"]`);
     const nxtEl = document.querySelector(`.view[data-view="${name}"]`);
     const animate = false;   /* переходы между вкладками отключены */
-    const apply = () => flushSync(() => { viewRef.current = name; setView(name); });
+    const selectedGame = name === 'game' ? (noHash ? gameFromHash() : anchor || '') : '';
+    const apply = () => flushSync(() => { viewRef.current = name; setView(name); setGameId(selectedGame); });
 
     if (animate) window.CFU_cam(curEl, nxtEl, ROUTES.indexOf(name) > ROUTES.indexOf(cur) ? 1 : -1, apply);
     else {
@@ -35,11 +41,12 @@ export function NavProvider({ children }) {
       if (window.CFU_play && nxtEl) window.CFU_play(nxtEl);
     }
 
-    if (!noHash && location.hash !== '#/' + name) {
-      try { history.pushState(null, '', '#/' + name); } catch (e) { location.hash = '#/' + name; }
+    const path = '#/' + name + (name === 'game' && selectedGame ? '/' + encodeURIComponent(selectedGame) : '');
+    if (!noHash && location.hash !== path) {
+      try { history.pushState(null, '', path); } catch (e) { location.hash = path; }
     }
     const busy = window.CFU_camBusy && window.CFU_camBusy();
-    const target = anchor && document.getElementById(anchor);
+    const target = name !== 'game' && anchor && document.getElementById(anchor);
     if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), busy ? 1100 : 60);
     else if (!busy) window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -47,11 +54,12 @@ export function NavProvider({ children }) {
   useEffect(() => {
     const onPop = () => show(fromHash(), null, true);
     window.addEventListener('popstate', onPop);
+    window.addEventListener('hashchange', onPop);
     window.CFU_go = (n, a) => show(n, a);
-    return () => window.removeEventListener('popstate', onPop);
+    return () => { window.removeEventListener('popstate', onPop); window.removeEventListener('hashchange', onPop); };
   }, [show]);
 
-  return <Nav.Provider value={{ view, show }}>{children}</Nav.Provider>;
+  return <Nav.Provider value={{ view, gameId, show }}>{children}</Nav.Provider>;
 }
 
 /* индикатор активной вкладки в шапке (подсветка «перетекает») */

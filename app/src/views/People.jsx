@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { Avatar, Banner, Icon } from '../components.jsx';
-import { PEOPLE } from '../data.js';
+import { PROFILES as PEOPLE } from '../profiles.js';
 import { useNav } from '../nav.jsx';
 import { useApp } from '../store.jsx';
 
@@ -136,7 +136,7 @@ export default function People() {
       name: 'Тихий берег',
       direction: '3D Хоррор от первого лица',
       tagline: 'Нужен программист игровой логики (Unity / C#). Сценарий и 3D-модели уже в работе.',
-      leader: { username: 'artem_r', displayName: 'Артём Романов' },
+      leader: { username: 'artem_r', displayName: 'Артём Рябов' },
       membersCount: 3,
       maxSize: 5,
       neededRoles: ['Программист Unity', 'Левелдизайнер']
@@ -146,7 +146,7 @@ export default function People() {
       name: 'Неоновый рассвет',
       direction: 'Ритм-раннер',
       tagline: 'Ищем саунд-дизайнера / композитора для написания динамичных synthwave треков.',
-      leader: { username: 'kirill_n', displayName: 'Кирилл Новиков' },
+      leader: { username: 'kirill_n', displayName: 'Кирилл Ненашев' },
       membersCount: 2,
       maxSize: 5,
       neededRoles: ['Саунд-дизайнер', 'UI Дизайнер']
@@ -275,10 +275,10 @@ export default function People() {
           {filteredCandidates.map((p) => {
             const body = (
               <>
-                <Avatar name={p.short} cls={'xl ' + p.cls} />
+                <Avatar name={p.nick} cls={'xl ' + p.cls} />
                 <div className="ph">
                   <div className="pinfo">
-                    <h4>{p.full}</h4>
+                    <h4><button className="profile-name" type="button" onClick={() => openModal({ type: 'profile', who: p.nick, profile: p })}>{p.full}</button></h4>
                     <span className="handle">@{p.nick} · {p.role}</span>
                   </div>
                   <div className="acts">
@@ -305,6 +305,7 @@ export default function People() {
 
                 <hr />
 
+                {p.skills?.length > 0 && <div className="row profile-skills">{p.skills.map((skill) => <span className="tag" key={skill}>{skill}</span>)}</div>}
                 {p.bio && (
                   <p style={{ fontSize: 13, color: '#4a5361', margin: '4px 0 10px', lineHeight: 1.4 }}>
                     {p.bio}

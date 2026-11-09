@@ -1,19 +1,7 @@
-import { memo } from 'react';
 import { Icon } from '../components.jsx';
-import { BASE_GAMES, bannerImage } from '../data.js';
+import { bannerImage } from '../data.js';
 import { asset } from '../lib.js';
 import { useNav } from '../nav.jsx';
-
-/* 3D-карусель: 40 слайдов. Разметка статичная — её двигает legacy-скрипт карусели, поэтому React к ней не прикасается */
-const SLIDES = Array.from({ length: 40 }, (_, i) => {
-  const game = BASE_GAMES[i % BASE_GAMES.length];
-  const lazy = i >= 14 && i < 30 ? 'loading="lazy"' : '';
-  return `<figure class="slide" style="--i:${i}"><div class="in"><img src="img/generated/${game.cover}.png" alt="" draggable="false" ${lazy}><span class="gen">${game.tags[1]}</span><figcaption>${game.title}</figcaption></div></figure>`;
-}).join('');
-
-const Ring = memo(function Ring() {
-  return <div className="ring" dangerouslySetInnerHTML={{ __html: SLIDES }} />;
-});
 
 function Countdown() {
   return (
@@ -41,25 +29,19 @@ export default function Home({ user, onRegister }) {
   const { show } = useNav();
   return (
     <>
-      <div className="gal">
-        <div className="gal-head">
-          <div className="h14-text">
-            <span className="eyebrow">Студенческий геймджем КФУ · 2026–2027</span>
-            <h1 className="gtitle">CFU<br /><span className="hl">GAME</span> JAM</h1>
-            <p className="lead">72 часа, одна идея и возможность работать в команде. Придумай, собери и покажи свою игру на геймджеме КФУ — для студентов любых курсов и направлений.</p>
-            <div className="cta">
-              <button className="btn pillcta" id="cta-reg" type="button" onClick={onRegister}><span>{user ? 'Создать команду' : 'Зарегистрироваться'}</span><i className="circ"><Icon n="arrow-right" /></i></button>
-            </div>
-            <ul className="h14-facts"><li><Icon n="clock" />72 часа на игру</li><li><Icon n="users" />Команда до 5 человек</li><li><Icon n="gamepad-2" />Любой движок</li></ul>
+      <section className="cfu-hero" aria-labelledby="hero-title">
+        <div className="cfu-hero-copy">
+          <span className="cfu-eyebrow"><span />Студенческий геймджем КФУ · 2026–2027</span>
+          <h1 id="hero-title">CFU GAME JAM</h1>
+          <p className="cfu-hero-lead">Одна идея. Твоя команда.<br />72 часа, чтобы создать свою игру.</p>
+          <p className="cfu-hero-description">Придумай, собери и покажи свою игру на геймджеме КФУ — для студентов любых курсов и направлений.</p>
+          <div className="cfu-hero-actions">
+            <button className="btn primary" id="cta-reg" type="button" onClick={onRegister}>{user ? 'Создать команду' : 'Участвовать'}<Icon n="arrow-right" /></button>
+            <button className="btn secondary" type="button" onClick={() => show('games')}><Icon n="gamepad-2" />Смотреть игры</button>
           </div>
-          <div className="collage" aria-hidden="true">
-            <figure className="f1"><img src="img/generated/students-work.png" alt="" draggable="false" decoding="async" /></figure>
-            <figure className="f2"><img src="img/generated/students-rest.png" alt="" draggable="false" decoding="async" /></figure>
-            <figure className="f3"><img src="img/generated/students-play.png" alt="" draggable="false" decoding="async" /></figure>
-          </div>
+          <ul className="cfu-hero-facts"><li><Icon n="clock" />72 часа</li><li><Icon n="users" />До 5 человек</li><li><Icon n="gamepad-2" />Любой движок</li></ul>
         </div>
-        <div className="stage" aria-hidden="true"><Ring /></div>
-      </div>
+      </section>
 
       <section className="how">
         <h2 className="sec-h">Как это работает</h2>
@@ -99,7 +81,7 @@ export default function Home({ user, onRegister }) {
 
       <section className="band14">
         <div><h2>Готов собрать команду?</h2><p>Присоединяйся и создай прототип игры за 72 часа.</p></div>
-        <button className="btn primary" type="button" onClick={() => show('teams')}>Участвовать <Icon n="arrow-right" /></button>
+        <button className="btn secondary" type="button" onClick={() => show('teams')}>Участвовать <Icon n="arrow-right" /></button>
       </section>
     </>
   );

@@ -17,6 +17,8 @@ function load() {
     opts: DEF_OPTS,
     role: 'Программист',
     msgs: 3,
+    messageThreads: {},
+    notifications: [],
     reqs: 12,
     reqIdx: 0,
     demo: null,
@@ -110,6 +112,16 @@ export function AppProvider({ children }) {
 
           // Подключаем живой SSE поток событий джема и уведомлений
           cleanupSse = api.connectLiveStream(currentJam.slug || 'current', (event, data) => {
+            if (['NEW_INVITE', 'NEW_APPLICATION', 'INVITE_ACCEPTED', 'PHASE_CHANGED'].includes(event)) {
+              update((d) => {
+                if (!d.user) return;
+                d.notifications ||= [];
+                d.notifications.unshift({ id: crypto.randomUUID(), user: d.user, read: false, at: Date.now(),
+                  text: event === 'NEW_INVITE' ? `Приглашение в команду «${data.teamName}»` : event === 'NEW_APPLICATION' ? `${data.applicantName} хочет присоединиться к вашей команде` : event === 'INVITE_ACCEPTED' ? `${data.joinedUser} вступил(а) в команду` : `Изменился статус джема: ${data.status}`,
+                  route: event === 'PHASE_CHANGED' ? 'home' : 'teams' });
+                d.notifications = d.notifications.slice(0, 100);
+              });
+            }
             if (event === 'PHASE_CHANGED') {
               toast(`Статус джема изменился: ${data.status}`, 'info');
               update((d) => { if (d.jam) d.jam.status = data.status; });
@@ -138,6 +150,9 @@ export function AppProvider({ children }) {
                   id: lg.id,
                   title: lg.title,
                   owner: lg.team?.name || 'Команда',
+                  crew: (lg.team?.members || []).map((m) => m.user?.username || m.user?.displayName).filter(Boolean),
+                  description: lg.description,
+                  text: lg.tagline || lg.description?.replace(/<[^>]*>/g, '').slice(0, 200),
                   dir: lg.engine || 'Unity',
                   coverUrl: lg.coverUrl,
                   webPlayableUrl: lg.webPlayableUrl,
