@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './components.jsx';
 import { archiveDocument, loadGameArchive } from './gameArchive.js';
+import { connectGameSaves } from './gameArchiveSaves.js';
 
 const bootTimeout = 20000;
 
-export default function GamePlayer({ title, sources, cover }) {
+export default function GamePlayer({ gameId, title, sources, cover }) {
   const player = useRef(null);
   const frame = useRef(null);
   const launch = useRef(null);
   const pendingArchive = useRef(null);
+  const closeSaves = useRef(null);
   const messageOrigin = useRef(null);
   const mountTimer = useRef(null);
   const [fullScreen, setFullScreen] = useState(false);
@@ -47,6 +49,7 @@ export default function GamePlayer({ title, sources, cover }) {
       window.removeEventListener('keydown', collapse);
       window.removeEventListener('message', receive);
       launch.current?.abort();
+      closeSaves.current?.();
       clearTimeout(mountTimer.current);
     };
   }, []);
@@ -59,6 +62,8 @@ export default function GamePlayer({ title, sources, cover }) {
 
   async function play() {
     launch.current?.abort();
+    closeSaves.current?.();
+    closeSaves.current = null;
     clearTimeout(mountTimer.current);
     pendingArchive.current = null;
     messageOrigin.current = null;
@@ -110,7 +115,9 @@ export default function GamePlayer({ title, sources, cover }) {
       return;
     }
     if (!pendingArchive.current) return;
-    frame.current.contentWindow.postMessage({ type: 'cfujam:run-archive', ...pendingArchive.current, muted }, '*');
+    const { port1, port2 } = new MessageChannel();
+    closeSaves.current = connectGameSaves(gameId, port1);
+    frame.current.contentWindow.postMessage({ type: 'cfujam:run-archive', ...pendingArchive.current, muted }, '*', [port2]);
     pendingArchive.current = null;
   }
 

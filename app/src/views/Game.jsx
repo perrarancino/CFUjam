@@ -19,7 +19,7 @@ export default function Game() {
   return <div className="game-page pull">
     <a className="back-link" href="#/games" onClick={(e) => { e.preventDefault(); show('games'); }}><Icon n="arrow-right" />Все игры</a>
     <header className="game-page-heading"><div><span className="lbl">Проект геймджема</span><h1>{game.title}</h1></div><button className={'btn ' + (liked ? 'primary' : 'secondary')} aria-pressed={liked} onClick={vote}><Icon n="heart" />{gameVotes(game, S)}<span>{liked ? 'Голос учтён' : 'Поддержать'}</span></button></header>
-    {sources && <GamePlayer key={game.id + ':' + (sources.archive || sources.page)} title={game.title} sources={sources} cover={game.coverUrl} />}
+    {sources && <GamePlayer key={game.id + ':' + (sources.archive || sources.page)} gameId={game.id} title={game.title} sources={sources} cover={game.coverUrl} />}
     <div className="game-page-layout">
       <div className="stack-v">{!sources && <img className="game-page-cover" src={game.coverUrl} alt={'Обложка игры «' + game.title + '»'} />}<section className="card"><h2>Об игре</h2><p>{game.description || game.text}</p><div className="project-tags">{game.tags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}</div></section></div>
       <aside className="stack-v">{(!sources || game.instructions) && <section className="card"><h2>{sources ? 'Управление' : 'Играть'}</h2>{!sources && <p className="hintp">Сборка ещё не опубликована.</p>}{game.instructions && <p>{game.instructions}</p>}</section>}

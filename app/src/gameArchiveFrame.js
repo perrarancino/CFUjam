@@ -4,7 +4,8 @@
   const virtualOrigin = 'https://cfujam-game.invalid';
   const report = (type) => parent.postMessage({ type }, parentOrigin);
 
-  async function mount({ entry, files, muted }) {
+  async function mount({ entry, files, muted }, storagePort) {
+    if (storagePort) await installGameArchiveStorage(storagePort);
     const archive = new Map(files);
     const urls = new Map(files.map(([path, blob]) => [path, URL.createObjectURL(blob)]));
     const base = new URL(entry.split('/').map(encodeURIComponent).join('/'), virtualOrigin);
@@ -84,7 +85,7 @@
   function receive(event) {
     if (event.source !== parent || event.origin !== parentOrigin || event.data?.type !== 'cfujam:run-archive') return;
     window.removeEventListener('message', receive);
-    mount(event.data).catch((error) => {
+    mount(event.data, event.ports[0]).catch((error) => {
       console.error(error);
       report('cfujam:archive-error');
     });

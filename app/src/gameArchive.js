@@ -1,5 +1,6 @@
 import { unzip } from 'fflate';
 import frameScript from './gameArchiveFrame.js?raw';
+import storageScript from './gameArchiveStorage.js?raw';
 import audioScript from '../public/game-audio.js?raw';
 
 const maxDownload = 100 * 1024 * 1024;
@@ -90,5 +91,5 @@ export function archiveDocument(parentOrigin) {
     'script-src \'unsafe-inline\' \'wasm-unsafe-eval\' blob:; connect-src blob: data:; worker-src blob:; ' +
     'style-src \'unsafe-inline\' blob:; img-src blob: data:; media-src blob: data:; font-src blob: data:; form-action \'none\'">' +
     '<script type="text/plain" id="cfu-audio-source">' + audioScript + '</script>' +
-    '</head><body><script>' + frameScript + '</script></body></html>';
+    '</head><body><script>' + storageScript + '\n' + frameScript + '</script></body></html>';
 }
