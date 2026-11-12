@@ -27,3 +27,13 @@ export function safeGameUrl(url) {
     return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : null;
   } catch { return null; }
 }
+
+export function githubPagesUrl(repositoryUrl) {
+  const match = /^https:\/\/github\.com\/([a-z\d](?:[a-z\d-]{0,37}[a-z\d])?)\/([a-z\d_.-]+)\/?$/i.exec(repositoryUrl || '');
+  if (!match) return null;
+  const owner = match[1].toLowerCase();
+  const repository = match[2].replace(/\.git$/i, '');
+  if (!repository || repository === '.' || repository === '..') return null;
+  const path = repository.toLowerCase() === owner + '.github.io' ? '' : repository + '/';
+  return 'https://' + owner + '.github.io/' + path;
+}

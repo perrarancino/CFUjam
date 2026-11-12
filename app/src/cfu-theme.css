@@ -342,6 +342,96 @@ body.cfu .game-page-heading { display: flex; justify-content: space-between; ali
 body.cfu .game-page-heading h1 { color: var(--burgundy); font-size: clamp(32px,4vw,54px); line-height: 1.2; margin-top: 8px; overflow-wrap: anywhere; }
 body.cfu .game-page-layout { display: grid; grid-template-columns: minmax(0,2fr) minmax(260px,1fr); gap: 24px; align-items: start; }
 body.cfu .game-page-cover { display: block; width: 100%; max-height: 490px; aspect-ratio: 16/10; object-fit: cover; border: 2px solid var(--line-strong) !important; }
+body.cfu .game-player {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 28px;
+  background: var(--paper);
+  border: 3px solid var(--burgundy-dark) !important;
+  box-shadow: 4px 4px 0 var(--gold-light) !important;
+}
+body.cfu .game-player-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 15px;
+  background: var(--burgundy-dark);
+  border-bottom: 3px solid var(--gold) !important;
+  color: #fff;
+}
+body.cfu .game-player-title { display: flex; align-items: center; gap: 10px; line-height: 1.2; }
+body.cfu .game-player-title .ico { flex: 0 0 22px; width: 22px; height: 22px; color: var(--gold-light); }
+body.cfu .game-player-fullscreen { flex-shrink: 0; }
+body.cfu .game-player-corners {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor !important;
+  mask: linear-gradient(#000 0 0) left top / 6px 6px no-repeat,
+    linear-gradient(#000 0 0) right top / 6px 6px no-repeat,
+    linear-gradient(#000 0 0) left bottom / 6px 6px no-repeat,
+    linear-gradient(#000 0 0) right bottom / 6px 6px no-repeat;
+}
+body.cfu .game-player-stage {
+  position: relative;
+  display: grid;
+  aspect-ratio: 16 / 9;
+  min-height: 300px;
+  background: #171110;
+}
+body.cfu .game-player-stage iframe, body.cfu .game-player-loading { position: absolute; inset: 0; width: 100%; height: 100%; }
+body.cfu .game-player-stage iframe { display: block; border: 0; }
+body.cfu .game-player-loading { display: grid; place-items: center; overflow: hidden; pointer-events: none; }
+body.cfu .game-player-loading img { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: .35; }
+body.cfu .game-player-loading span {
+  position: relative;
+  padding: 10px 18px;
+  background: var(--burgundy-dark);
+  border: 2px solid var(--gold) !important;
+  color: #fff;
+}
+body.cfu .game-player-footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 16px;
+  border-top: 2px solid var(--gold) !important;
+  font-size: 15px;
+}
+body.cfu .game-player-footer :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--burgundy);
+  cursor: pointer;
+  font: inherit;
+}
+body.cfu .game-player-footer :is(a, button):hover { text-decoration: underline; text-underline-offset: 3px; }
+body.cfu .game-player-footer :is(a, button):focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+body.cfu .game-player-footer .ico { width: 14px; height: 14px; }
+body.cfu .game-player:is(:fullscreen, .is-expanded) {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body.cfu .game-player.is-expanded { position: fixed; inset: 0; z-index: 1200; }
+body.cfu .game-page:has(> .game-player.is-expanded) { z-index: 1200; }
+html:has(body.cfu .game-player.is-expanded) { overflow: hidden; scrollbar-gutter: auto; }
+body.cfu .game-player:is(:fullscreen, .is-expanded) .game-player-stage { flex: 1; min-height: 0; aspect-ratio: auto; }
+@media (max-width: 540px) {
+  body.cfu .game-player-bar, body.cfu .game-player-footer { padding-inline: 10px; }
+  body.cfu .game-player-title { font-size: 15px; gap: 6px; }
+  body.cfu .game-player-title .ico { display: none; }
+}
 body.cfu :is(.game-page,.account-layout,.team-workspace,.team-directory,.conversation) h2 { color: var(--burgundy); font-size: 26px; line-height: 1.25; margin: 0 0 18px; }
 body.cfu .game-page .card > p { white-space: pre-wrap; overflow-wrap: anywhere; }
 body.cfu .game-crew { display: flex; flex-direction: column; gap: 18px; margin-bottom: 24px; }

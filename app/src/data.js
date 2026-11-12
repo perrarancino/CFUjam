@@ -16,8 +16,18 @@ export const cover = (title) => {
   return COVERS[h % COVERS.length];
 };
 
-/* три готовые игры в каталоге */
+/* демонстрационные игры в каталоге */
 export const BASE_GAMES = [
+  {
+    id: 'frutiger-aero-2',
+    title: 'Frutiger Aero 2',
+    text: 'Уютный аквариум в стиле Frutiger Aero. Собирай рыбок и обустраивай свой подводный мир.',
+    tags: ['Godot', '2D', 'Симулятор', 'Для браузера'],
+    cover: 'frutiger-aero-2',
+    base: 0,
+    crew: [],
+    gameRepositoryUrl: 'https://github.com/perrarancino/test'
+  },
   { id: 'g0', title: 'Лунный садовник', text: 'Выращивай цветы в тишине ночного Крыма. Godot, 2D.', tags: ['Godot', 'Пазл', '2D'], cover: 'moon-garden-user', base: 128, crew: ['Алина К', 'Данил М', 'Софья В'] },
   { id: 'g1', title: 'Тихий берег', text: 'Хоррор про заброшенный маяк. Unity, 3D.', tags: ['Unity', 'Хоррор', '3D'], cover: 'quiet-shore', base: 96, crew: ['Артём Р', 'Мария Л'] },
   { id: 'g2', title: 'Чайка и ветер', text: 'Аркада про полёт над побережьем. Pixel Art.', tags: ['Pixel Art', 'Аркада', '2D'], cover: 'seagull', base: 74, crew: ['Кирилл Н', 'Елена П', 'Игорь Т'] }
