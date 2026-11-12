@@ -1,5 +1,5 @@
 import { Avatar, Icon } from '../components.jsx';
-import { catalogGames, gameVotes, githubPagesUrl, safeGameUrl } from '../catalog.js';
+import { catalogGames, gameSources, gameVotes } from '../catalog.js';
 import GamePlayer from '../GamePlayer.jsx';
 import { profileOf } from '../profiles.js';
 import { useNav } from '../nav.jsx';
@@ -11,8 +11,7 @@ export default function Game() {
   const game = catalogGames(S).find((g) => g.id === gameId);
   if (!game) return <div className="card pull empty"><h2>Игра не найдена</h2><p>Возможно, ссылка устарела или проект удалён.</p><button className="btn secondary" onClick={() => show('games')}>К списку игр</button></div>;
   const liked = !!S.user && (S.likes[S.user] || []).includes(game.id);
-  const pagesUrl = githubPagesUrl(game.gameRepositoryUrl);
-  const playUrl = pagesUrl || safeGameUrl(game.webPlayableUrl);
+  const sources = gameSources(game);
   const vote = () => {
     if (!S.user) return needAuth('Войдите, чтобы голосовать за игру');
     update((d) => { const votes = d.likes[d.user] || []; d.likes[d.user] = liked ? votes.filter((id) => id !== game.id) : [...votes, game.id]; });
@@ -20,10 +19,10 @@ export default function Game() {
   return <div className="game-page pull">
     <a className="back-link" href="#/games" onClick={(e) => { e.preventDefault(); show('games'); }}><Icon n="arrow-right" />Все игры</a>
     <header className="game-page-heading"><div><span className="lbl">Проект геймджема</span><h1>{game.title}</h1></div><button className={'btn ' + (liked ? 'primary' : 'secondary')} aria-pressed={liked} onClick={vote}><Icon n="heart" />{gameVotes(game, S)}<span>{liked ? 'Голос учтён' : 'Поддержать'}</span></button></header>
-    {playUrl && <GamePlayer key={game.id + ':' + playUrl} title={game.title} src={playUrl} cover={game.coverUrl} repository={pagesUrl && game.gameRepositoryUrl} />}
+    {sources && <GamePlayer key={game.id + ':' + (sources.archive || sources.page)} title={game.title} sources={sources} cover={game.coverUrl} />}
     <div className="game-page-layout">
-      <div className="stack-v">{!playUrl && <img className="game-page-cover" src={game.coverUrl} alt={'Обложка игры «' + game.title + '»'} />}<section className="card"><h2>Об игре</h2><p>{game.description || game.text}</p><div className="project-tags">{game.tags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}</div></section></div>
-      <aside className="stack-v">{(!playUrl || game.instructions) && <section className="card"><h2>{playUrl ? 'Управление' : 'Играть'}</h2>{!playUrl && <p className="hintp">Сборка ещё не опубликована.</p>}{game.instructions && <p>{game.instructions}</p>}</section>}
+      <div className="stack-v">{!sources && <img className="game-page-cover" src={game.coverUrl} alt={'Обложка игры «' + game.title + '»'} />}<section className="card"><h2>Об игре</h2><p>{game.description || game.text}</p><div className="project-tags">{game.tags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}</div></section></div>
+      <aside className="stack-v">{(!sources || game.instructions) && <section className="card"><h2>{sources ? 'Управление' : 'Играть'}</h2>{!sources && <p className="hintp">Сборка ещё не опубликована.</p>}{game.instructions && <p>{game.instructions}</p>}</section>}
         <section className="card"><h2>Команда проекта</h2>{game.crew?.length ? <div className="game-crew">{game.crew.map((name) => { const p = profileOf(name, S); return <div className="game-crew-member" key={name}><Avatar name={name} /><div><b>{p.full}</b><small>{p.role}</small></div></div>; })}</div> : <p className="hintp">Состав пока не указан.</p>}<button className="btn secondary sm" onClick={() => show('teams')}>К командам<Icon n="arrow-right" /></button></section>
       </aside>
     </div>

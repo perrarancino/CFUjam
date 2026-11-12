@@ -28,12 +28,24 @@ export function safeGameUrl(url) {
   } catch { return null; }
 }
 
-export function githubPagesUrl(repositoryUrl) {
+function githubGameSources(repositoryUrl) {
   const match = /^https:\/\/github\.com\/([a-z\d](?:[a-z\d-]{0,37}[a-z\d])?)\/([a-z\d_.-]+)\/?$/i.exec(repositoryUrl || '');
   if (!match) return null;
   const owner = match[1].toLowerCase();
   const repository = match[2].replace(/\.git$/i, '');
   if (!repository || repository === '.' || repository === '..') return null;
   const path = repository.toLowerCase() === owner + '.github.io' ? '' : repository + '/';
-  return 'https://' + owner + '.github.io/' + path;
+  return {
+    archive: 'https://raw.githubusercontent.com/' + owner + '/' + repository + '/HEAD/game.zip',
+    page: 'https://' + owner + '.github.io/' + path,
+    repository: 'https://github.com/' + owner + '/' + repository
+  };
+}
+
+export function gameSources(game) {
+  const direct = safeGameUrl(game.webPlayableUrl);
+  const github = githubGameSources(game.gameRepositoryUrl || direct);
+  if (github) return github;
+  if (!direct) return null;
+  return new URL(direct).pathname.toLowerCase().endsWith('.zip') ? { archive: direct } : { page: direct };
 }
